@@ -29,7 +29,8 @@ def get_suffix_array(s):
     >>> get_suffix_array('GATAGACA$')
     [8, 7, 5, 3, 1, 6, 4, 0, 2]
     """
-    pass
+    index_suffix_dict = {i:s[i:] for i in range(len(s))}
+    return [k for k, v in sorted(index_suffix_dict.items(), key=lambda item: item[1])]
 
 def get_bwt(s, sa):
     """
@@ -40,7 +41,11 @@ def get_bwt(s, sa):
     Output:
         L: BWT of s as a string
     """
-    pass
+    L = ''
+    n = len(sa)
+    for i in sa:
+        L += s[(i + n - 1) % n]
+    return L
 
 def get_F(L):
     """
@@ -48,7 +53,7 @@ def get_F(L):
 
     Output: F, first column in Pi_sorted
     """
-    pass
+    return ''.join(sorted(L))
 
 def get_M(F):
     """
@@ -57,7 +62,11 @@ def get_M(F):
 
     If a character "c" does not exist in F, you may set M[c] = -1
     """
-    pass
+    M = {}
+    for i in range(len(F)):
+        if F[i] not in M:
+            M[F[i]] = i
+    return M
 
 def get_occ(L):
     """
@@ -65,7 +74,23 @@ def get_occ(L):
     string character to a list of integers. If c is a string character and i is an integer, then OCC[c][i] gives
     the number of occurrences of character "c" in the bwt string up to and including index i
     """
-    pass
+    alpha = ''.join(set(L))
+    occ = {}
+    for c in alpha:
+        occ[c] = []
+    for i in range(len(L)):
+        for k in occ.keys():
+            if L[i] == k:
+                if i == 0:
+                    occ[k] += [1]
+                else:
+                    occ[k] += [occ[k][i - 1] + 1]
+            else:
+                if i == 0:
+                    occ[k] += [0]
+                else:
+                    occ[k] += [occ[k][i - 1]]
+    return occ
 
 def exact_suffix_matches(p, M, occ):
     """
@@ -149,3 +174,15 @@ class Aligner:
         Time limit: 0.5 seconds per read on average on the provided data.
         """
         pass
+
+s = 'GATAGACA$'
+sa = get_suffix_array(s)
+print(sa)
+L = get_bwt(s, sa)
+print(L)
+F = get_F(L)
+print(F)
+M = get_M(F)
+print(M)
+occ = get_occ(L)
+print(occ)
