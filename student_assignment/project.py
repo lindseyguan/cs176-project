@@ -74,9 +74,8 @@ def get_occ(L):
     string character to a list of integers. If c is a string character and i is an integer, then OCC[c][i] gives
     the number of occurrences of character "c" in the bwt string up to and including index i
     """
-    alpha = ''.join(set(L))
     occ = {}
-    for c in alpha:
+    for c in ALPHABET:
         occ[c] = []
     for i in range(len(L)):
         for k in occ.keys():
@@ -141,23 +140,24 @@ def exact_suffix_matches(p, M, occ):
     sp = M[c]
     M_sorted = [[k, v] for k, v in sorted(M.items(), key=lambda item: item[1])]
     if not M_sorted.index([c, M[c]]) >= len(M_sorted) - 1:
-        ep = M[M_sorted[M_sorted.index([c, M[c]]) + 1][0]]
+        ep = M[M_sorted[M_sorted.index([c, M[c]]) + 1][0]] - 1
     else:
-        ep = len(occ[ALPHABET[0]][0]) - 1
-    i = len(p) - 2
-    while i >= 1:
+        ep = len(occ[ALPHABET[0]]) - 1
+    i = len(p) - 1
+    while i > 0:
+        i -= 1
         print(str(sp) + ', ' + str(ep))
         old_sp = sp
         old_ep = ep
         sp = M[p[i]] + occ[p[i]][sp - 1]
         ep = M[p[i]] + occ[p[i]][ep] - 1
-        if ep < sp:
+        if ep <= sp:
+            i += 1
             sp = old_sp
             ep = old_ep
             break
-        i -= 1
-    return ((sp, ep), len(p[(i + 1):]))
-    
+    return ((sp, ep + 1), len(p) - i)
+
 
 MIN_INTRON_SIZE = 20
 MAX_INTRON_SIZE = 10000
@@ -196,7 +196,8 @@ class Aligner:
         """
         pass
 
-s = 'ACC' * 10 + '$'
+s = 'ACGT' * 10 + '$'
+print(s)
 sa = get_suffix_array(s)
 # print(sa)
 L = get_bwt(s, sa)
@@ -207,5 +208,5 @@ M = get_M(F)
 # print(M)
 occ = get_occ(L)
 # print(occ)
-matches = exact_suffix_matches('C', M, occ)
-# print(matches)
+matches = exact_suffix_matches('$', M, occ)
+print(matches)
