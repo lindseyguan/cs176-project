@@ -63,9 +63,9 @@ def get_M(F):
     If a character "c" does not exist in F, you may set M[c] = -1
     """
     M = {}
-    for i in range(len(F)):
-        if F[i] not in M:
-            M[F[i]] = i
+    for c in ALPHABET:
+        if c not in M:
+            M[c] = F.find(c)
     return M
 
 def get_occ(L):
@@ -136,7 +136,28 @@ def exact_suffix_matches(p, M, occ):
     >>> exact_suffix_matches('AA', M, occ)
     ((1, 11), 1)
     """
-    pass
+    # COUNT algorithm as described in Lec 7
+    c = p[-1]
+    sp = M[c]
+    M_sorted = [[k, v] for k, v in sorted(M.items(), key=lambda item: item[1])]
+    if not M_sorted.index([c, M[c]]) >= len(M_sorted) - 1:
+        ep = M[M_sorted[M_sorted.index([c, M[c]]) + 1][0]]
+    else:
+        ep = len(occ[ALPHABET[0]][0]) - 1
+    i = len(p) - 2
+    while i >= 1:
+        print(str(sp) + ', ' + str(ep))
+        old_sp = sp
+        old_ep = ep
+        sp = M[p[i]] + occ[p[i]][sp - 1]
+        ep = M[p[i]] + occ[p[i]][ep] - 1
+        if ep < sp:
+            sp = old_sp
+            ep = old_ep
+            break
+        i -= 1
+    return ((sp, ep), len(p[(i + 1):]))
+    
 
 MIN_INTRON_SIZE = 20
 MAX_INTRON_SIZE = 10000
@@ -175,14 +196,16 @@ class Aligner:
         """
         pass
 
-s = 'GATAGACA$'
+s = 'ACC' * 10 + '$'
 sa = get_suffix_array(s)
-print(sa)
+# print(sa)
 L = get_bwt(s, sa)
-print(L)
+# print(L)
 F = get_F(L)
 print(F)
 M = get_M(F)
-print(M)
+# print(M)
 occ = get_occ(L)
-print(occ)
+# print(occ)
+matches = exact_suffix_matches('C', M, occ)
+# print(matches)
