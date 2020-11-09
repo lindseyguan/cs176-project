@@ -146,7 +146,6 @@ def exact_suffix_matches(p, M, occ):
     i = len(p) - 1
     while i > 0:
         i -= 1
-        print(str(sp) + ', ' + str(ep))
         old_sp = sp
         old_ep = ep
         sp = M[p[i]] + occ[p[i]][sp - 1]
@@ -197,16 +196,16 @@ class Aligner:
         pass
 
 s = 'ACGT' * 10 + '$'
-print(s)
+# print(s)
 sa = get_suffix_array(s)
 # print(sa)
 L = get_bwt(s, sa)
 # print(L)
 F = get_F(L)
-print(F)
+# print(F)
 M = get_M(F)
 # print(M)
 occ = get_occ(L)
 # print(occ)
 matches = exact_suffix_matches('$', M, occ)
-print(matches)
+# print(matches)
