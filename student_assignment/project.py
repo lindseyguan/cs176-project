@@ -13,24 +13,22 @@
 
 import sys # DO NOT EDIT THIS
 import time # DELETE THIS LATER
+import numpy as np
 from shared import *
 
 ALPHABET = [TERMINATOR] + BASES
-radix_k = 3
+radix_k = 2
 
 class Bucket:
     def __init__(self, bucket_id, str_arr, k):
         self.bucket_id = bucket_id
         self.str_arr = str_arr
         self.k = k
-        self.sub_buckets = []
+        self.sub_buckets = {}
     
     def get_sub_buckets(self):
         """
-        Helper method recursively generating sub buckets using the kth character of the strings
-
-        Input:
-            str_arr: an array of [index, string] where strings are of equal length
+        Recursively generates sub buckets using the kth character of the strings
         """
         if self.k >= radix_k:
             return {}
@@ -46,11 +44,31 @@ class Bucket:
         for b in buckets.values():
             b.get_sub_buckets()
             
-        self.sub_buckets = b
+        self.sub_buckets = buckets
+    
+def lex_traverse(bucket, s):
+    """
+    Recursively returns a tuple of all indices of all strings of all sub buckets of a bucket 
+    in lexicographic order
+    """
+    traversed = []
+    if bucket.str_arr == []:
+        return []
+    if bucket.sub_buckets == {}:
+        return [i[0] for i in sorted(bucket.str_arr, key=lambda x: s[x[0]:])]
+    else:
+        for key in sorted(bucket.sub_buckets):
+            traversed.extend(lex_traverse(bucket.sub_buckets[key], s))
+    return traversed
+        
         
 def naive_suffix_array(s):
+    start_time = time.time()
     index_suffix_dict = {i:s[i:] for i in range(len(s))}
-    return [k for k, v in sorted(index_suffix_dict.items(), key=lambda item: item[1])]
+    a = [k for k, v in sorted(index_suffix_dict.items(), key=lambda item: item[1])]
+    print('naive: ' + str((time.time() - start_time) * 1000))
+    # print(a)
+    return a
     
 def get_suffix_array(s):
     """
@@ -65,17 +83,22 @@ def get_suffix_array(s):
     >>> get_suffix_array('GATAGACA$')
     [8, 7, 5, 3, 1, 6, 4, 0, 2]
     """
+    start_time = time.time()
     str_arr = []
     n = len(s)
     for i in range(n):
-        if i + radix_k > n:
-            str_padded = s[i:].ljust(radix_k)
+        if i + radix_k + 1> n:
+            str_padded = s[i:].ljust(radix_k + 1)
         else:
-            str_padded = s[i:i+radix_k]
+            str_padded = s[i:i+radix_k+1]
         str_arr.append([i, str_padded])
     main_bucket = Bucket('MAIN', str_arr, 0)
     main_bucket.get_sub_buckets()
-    
+    radix_sorted = lex_traverse(main_bucket, s)
+    print('radix: ' + str((time.time() - start_time) * 1000))
+    # print(radix_sorted)
+    # print(naive_suffix_array(s))
+
 
 def get_bwt(s, sa):
     """
@@ -301,6 +324,9 @@ def testAlignerInit():
     print(time.time() - start_time)
 
 def testRadixSort():
-    get_suffix_array('ACGACGACG')
+    s = 'ACGTAGCCGG' * 50000 + '$'
+    # s = 'ACGACGACG$'
+    # naive_suffix_array(s)
+    get_suffix_array(s)
 
 testRadixSort()
