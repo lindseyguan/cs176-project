@@ -16,7 +16,42 @@ import time # DELETE THIS LATER
 from shared import *
 
 ALPHABET = [TERMINATOR] + BASES
+radix_k = 3
 
+class Bucket:
+    def __init__(self, bucket_id, str_arr, k):
+        self.bucket_id = bucket_id
+        self.str_arr = str_arr
+        self.k = k
+        self.sub_buckets = []
+    
+    def get_sub_buckets(self):
+        """
+        Helper method recursively generating sub buckets using the kth character of the strings
+
+        Input:
+            str_arr: an array of [index, string] where strings are of equal length
+        """
+        if self.k >= radix_k:
+            return {}
+        
+        buckets = {}
+        for p in self.str_arr:
+            char = p[1][self.k]
+            if char in buckets:
+                buckets[char].str_arr.append(p)
+            else:
+                new_bucket = Bucket(char, [p], self.k + 1)
+                buckets[char] = new_bucket
+        for b in buckets.values():
+            b.get_sub_buckets()
+            
+        self.sub_buckets = b
+        
+def naive_suffix_array(s):
+    index_suffix_dict = {i:s[i:] for i in range(len(s))}
+    return [k for k, v in sorted(index_suffix_dict.items(), key=lambda item: item[1])]
+    
 def get_suffix_array(s):
     """
     Naive implementation of suffix array generation (0-indexed). You do not have to implement the
@@ -30,8 +65,17 @@ def get_suffix_array(s):
     >>> get_suffix_array('GATAGACA$')
     [8, 7, 5, 3, 1, 6, 4, 0, 2]
     """
-    index_suffix_dict = {i:s[i:] for i in range(len(s))}
-    return [k for k, v in sorted(index_suffix_dict.items(), key=lambda item: item[1])]
+    str_arr = []
+    n = len(s)
+    for i in range(n):
+        if i + radix_k > n:
+            str_padded = s[i:].ljust(radix_k)
+        else:
+            str_padded = s[i:i+radix_k]
+        str_arr.append([i, str_padded])
+    main_bucket = Bucket('MAIN', str_arr, 0)
+    main_bucket.get_sub_buckets()
+    
 
 def get_bwt(s, sa):
     """
@@ -197,58 +241,66 @@ class Aligner:
         """
         pass
 
-# s = 'ACGT' * 10 + '$'
-# # print(s)
-# sa = get_suffix_array(s)
-# # print(sa)
-# L = get_bwt(s, sa)
-# # print(L)
-# F = get_F(L)
-# # print(F)
-# M = get_M(F)
-# # print(M)
-# occ = get_occ(L)
-# # print(occ)
-# matches = exact_suffix_matches('$', M, occ)
-# # print(matches)
+def testBWTFunctions():
+    # s = 'ACGT' * 10 + '$'
+    # # print(s)
+    # sa = get_suffix_array(s)
+    # # print(sa)
+    # L = get_bwt(s, sa)
+    # # print(L)
+    # F = get_F(L)
+    # # print(F)
+    # M = get_M(F)
+    # # print(M)
+    # occ = get_occ(L)
+    # # print(occ)
+    # matches = exact_suffix_matches('$', M, occ)
+    # # print(matches)
+    pass
 
-# Testing runtime of Aligner init
-genome_sequence = ''
-with open('./genome.fa') as f:
-    genome_sequence = f.readline()
-    genome_sequence = f.readline() + '$'
+def testAlignerInit():
+    # Testing runtime of Aligner init
+    genome_sequence = ''
+    with open('./genome.fa') as f:
+        genome_sequence = f.readline()
+        genome_sequence = f.readline() + '$'
 
-genes = set()
+    genes = set()
 
-gene_id = ''
-isoforms = []
+    gene_id = ''
+    isoforms = []
 
-isoform_id = ''
-exons = []
+    isoform_id = ''
+    exons = []
 
-exon_id = ''
-start = 0
-end = 0
-    
-for line in reversed(list(open("./genes.tab"))):
-    elements = line.split('\t')
-    if elements[0] == 'exon':
-        ex = Exon(elements[1], int(elements[2]), int(elements[3]))
-        exons.append(ex)
-    elif elements[0] == 'isoform':
-        iso = Isoform(elements[1], exons)
-        isoforms.append(iso)
-        exons = []
-    elif elements[0] == 'gene':
-        g = Gene(elements[1], isoforms)
-        genes.add(g)
-        isoforms = []
+    exon_id = ''
+    start = 0
+    end = 0
+        
+    for line in reversed(list(open("./genes.tab"))):
+        elements = line.split('\t')
+        if elements[0] == 'exon':
+            ex = Exon(elements[1], int(elements[2]), int(elements[3]))
+            exons.append(ex)
+        elif elements[0] == 'isoform':
+            iso = Isoform(elements[1], exons)
+            isoforms.append(iso)
+            exons = []
+        elif elements[0] == 'gene':
+            g = Gene(elements[1], isoforms)
+            genes.add(g)
+            isoforms = []
 
-test_exons = [Exon('ENSE00001802701', 8250613, 8250877), Exon('ENSE00001729938', 8252369, 8252739)]
-test_isoforms = [Isoform('ENST00000433210', test_exons)]
-test_gene = Gene('ENSG00000231620', test_isoforms)
-assert(test_gene in genes)
+    test_exons = [Exon('ENSE00001802701', 8250613, 8250877), Exon('ENSE00001729938', 8252369, 8252739)]
+    test_isoforms = [Isoform('ENST00000433210', test_exons)]
+    test_gene = Gene('ENSG00000231620', test_isoforms)
+    assert(test_gene in genes)
 
-start_time = time.time()
-aligner = Aligner(genome_sequence, genes)
-print(time.time() - start_time)
+    start_time = time.time()
+    aligner = Aligner(genome_sequence, genes)
+    print(time.time() - start_time)
+
+def testRadixSort():
+    get_suffix_array('ACGACGACG')
+
+testRadixSort()
