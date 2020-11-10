@@ -17,7 +17,7 @@ import numpy as np
 from shared import *
 
 ALPHABET = [TERMINATOR] + BASES
-radix_k = 2
+radix_k = 4
 
 class Bucket:
     def __init__(self, bucket_id, str_arr, k):
@@ -55,7 +55,7 @@ def lex_traverse(bucket, s):
     if bucket.str_arr == []:
         return []
     if bucket.sub_buckets == {}:
-        return [i[0] for i in sorted(bucket.str_arr, key=lambda x: s[x[0]:])]
+        return sorted(bucket.str_arr, key=lambda item: s[item[0]:])
     else:
         for key in sorted(bucket.sub_buckets):
             traversed.extend(lex_traverse(bucket.sub_buckets[key], s))
@@ -91,13 +91,14 @@ def get_suffix_array(s):
             str_padded = s[i:].ljust(radix_k + 1)
         else:
             str_padded = s[i:i+radix_k+1]
-        str_arr.append([i, str_padded])
+        str_arr.append((i, str_padded))
     main_bucket = Bucket('MAIN', str_arr, 0)
     main_bucket.get_sub_buckets()
-    radix_sorted = lex_traverse(main_bucket, s)
+    radix_sorted = [int(x[0]) for x in lex_traverse(main_bucket, s)]
     print('radix: ' + str((time.time() - start_time) * 1000))
     # print(radix_sorted)
     # print(naive_suffix_array(s))
+    print(radix_sorted == naive_suffix_array(s))
 
 
 def get_bwt(s, sa):
@@ -324,9 +325,9 @@ def testAlignerInit():
     print(time.time() - start_time)
 
 def testRadixSort():
-    s = 'ACGTAGCCGG' * 50000 + '$'
+    s = 'ACGTAGCCG' * 10000 + '$'
     # s = 'ACGACGACG$'
-    # naive_suffix_array(s)
+    naive_suffix_array(s)
     get_suffix_array(s)
 
 testRadixSort()
