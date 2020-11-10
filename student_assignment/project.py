@@ -12,6 +12,7 @@
 """
 
 import sys # DO NOT EDIT THIS
+import time # DELETE THIS LATER
 from shared import *
 
 ALPHABET = [TERMINATOR] + BASES
@@ -174,7 +175,8 @@ class Aligner:
                     so don't stress if you are close. Server is 1.25 times faster than the i7 CPU on my computer
 
         """
-        pass
+        self.sa = get_suffix_array(genome_sequence)
+        self.known_genes = known_genes
 
     def align(self, read_sequence):
         """
@@ -195,17 +197,58 @@ class Aligner:
         """
         pass
 
-s = 'ACGT' * 10 + '$'
-# print(s)
-sa = get_suffix_array(s)
-# print(sa)
-L = get_bwt(s, sa)
-# print(L)
-F = get_F(L)
-# print(F)
-M = get_M(F)
-# print(M)
-occ = get_occ(L)
-# print(occ)
-matches = exact_suffix_matches('$', M, occ)
-# print(matches)
+# s = 'ACGT' * 10 + '$'
+# # print(s)
+# sa = get_suffix_array(s)
+# # print(sa)
+# L = get_bwt(s, sa)
+# # print(L)
+# F = get_F(L)
+# # print(F)
+# M = get_M(F)
+# # print(M)
+# occ = get_occ(L)
+# # print(occ)
+# matches = exact_suffix_matches('$', M, occ)
+# # print(matches)
+
+# Testing runtime of Aligner init
+genome_sequence = ''
+with open('./genome.fa') as f:
+    genome_sequence = f.readline()
+    genome_sequence = f.readline() + '$'
+
+genes = set()
+
+gene_id = ''
+isoforms = []
+
+isoform_id = ''
+exons = []
+
+exon_id = ''
+start = 0
+end = 0
+    
+for line in reversed(list(open("./genes.tab"))):
+    elements = line.split('\t')
+    if elements[0] == 'exon':
+        ex = Exon(elements[1], int(elements[2]), int(elements[3]))
+        exons.append(ex)
+    elif elements[0] == 'isoform':
+        iso = Isoform(elements[1], exons)
+        isoforms.append(iso)
+        exons = []
+    elif elements[0] == 'gene':
+        g = Gene(elements[1], isoforms)
+        genes.add(g)
+        isoforms = []
+
+test_exons = [Exon('ENSE00001802701', 8250613, 8250877), Exon('ENSE00001729938', 8252369, 8252739)]
+test_isoforms = [Isoform('ENST00000433210', test_exons)]
+test_gene = Gene('ENSG00000231620', test_isoforms)
+assert(test_gene in genes)
+
+start_time = time.time()
+aligner = Aligner(genome_sequence, genes)
+print(time.time() - start_time)
