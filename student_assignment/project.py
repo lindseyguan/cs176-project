@@ -66,7 +66,7 @@ def naive_suffix_array(s):
     start_time = time.time()
     index_suffix_dict = {i:s[i:] for i in range(len(s))}
     a = [k for k, v in sorted(index_suffix_dict.items(), key=lambda item: item[1])]
-    print('naive: ' + str((time.time() - start_time) * 1000))
+    # print('naive: ' + str((time.time() - start_time) * 1000))
     # print(a)
     return a
     
@@ -95,11 +95,10 @@ def get_suffix_array(s):
     main_bucket = Bucket('MAIN', str_arr, 0)
     main_bucket.get_sub_buckets()
     radix_sorted = [int(x[0]) for x in lex_traverse(main_bucket, s)]
-    print('radix: ' + str((time.time() - start_time) * 1000))
+    # print('radix: ' + str((time.time() - start_time) * 1000))
     # print(radix_sorted)
     # print(naive_suffix_array(s))
-    print(radix_sorted == naive_suffix_array(s))
-
+    return radix_sorted
 
 def get_bwt(s, sa):
     """
@@ -265,6 +264,8 @@ class Aligner:
         """
         pass
 
+# TEST FUNCTIONS 
+
 def testBWTFunctions():
     # s = 'ACGT' * 10 + '$'
     # # print(s)
@@ -322,12 +323,12 @@ def testAlignerInit():
 
     start_time = time.time()
     aligner = Aligner(genome_sequence, genes)
-    print(time.time() - start_time)
+    # print(time.time() - start_time)
 
 def testRadixSort():
-    s = 'ACGTAGCCG' * 20000 + '$'
-    # s = 'ACGACGACG$'
-    naive_suffix_array(s)
+    # s = 'ACGTAGCCG' * 50000 + '$'
+    s = 'ACGACGACG$'
+    # naive_suffix_array(s)
     get_suffix_array(s)
 
 testRadixSort()
