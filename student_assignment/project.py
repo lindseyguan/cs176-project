@@ -17,7 +17,7 @@ import numpy as np
 from shared import *
 
 ALPHABET = [TERMINATOR] + BASES
-radix_k = 4
+radix_k = 5
 
 class Bucket:
     def __init__(self, bucket_id, str_arr, k):
@@ -95,7 +95,7 @@ def get_suffix_array(s):
     main_bucket = Bucket('MAIN', str_arr, 0)
     main_bucket.get_sub_buckets()
     radix_sorted = [int(x[0]) for x in lex_traverse(main_bucket, s)]
-    # print('radix: ' + str((time.time() - start_time) * 1000))
+    print('radix: ' + str((time.time() - start_time) * 1000))
     # print(radix_sorted)
     # print(naive_suffix_array(s))
     return radix_sorted
@@ -323,12 +323,17 @@ def testAlignerInit():
 
     start_time = time.time()
     aligner = Aligner(genome_sequence, genes)
-    # print(time.time() - start_time)
+    print(time.time() - start_time)
 
 def testRadixSort():
-    # s = 'ACGTAGCCG' * 50000 + '$'
-    s = 'ACGACGACG$'
+    s = 'ACGTAGCCG' * 10000 + '$'
+    # s = 'ACGACGACG$'
     # naive_suffix_array(s)
-    get_suffix_array(s)
+    for i in range(1, 15):
+        global radix_k
+        radix_k = i
+        print(i)
+        get_suffix_array(s)
 
 testRadixSort()
+# testAlignerInit()
