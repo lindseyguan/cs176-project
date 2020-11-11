@@ -325,7 +325,7 @@ def testAlignerInit():
     print(time.time() - start_time)
 
 def testRadixSort():
-    s = 'ACGTAGCCG' * 10000 + '$'
+    s = 'ACGTAGCCG' * 20000 + '$'
     # s = 'ACGACGACG$'
     naive_suffix_array(s)
     get_suffix_array(s)
