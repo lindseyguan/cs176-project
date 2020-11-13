@@ -330,8 +330,7 @@ def testRadixSort():
     # s = STRING
     # print(get_suffix_array(s) == naive_suffix_array(s))
     s = ''
-    with open('./genome.fa') as f:
-        s = f.readline()
+    with open('./genome_shortest.fa') as f:
         s = f.readline() + '$'
     print(get_suffix_array(s) == naive_suffix_array(s))
     
