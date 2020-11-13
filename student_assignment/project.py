@@ -55,33 +55,11 @@ def lex_traverse(bucket):
     Recursively returns all indices of all strings of all sub buckets of a bucket 
     in lexicographic order
     """
-    # Slow but doesn't use a lot of memory
-    def cmp_func(a, b):
-        # Returns -1 if a<b, 0 if a=b, 1 if a>b
-        a_start = a
-        b_start = a
-        end = len(STRING)
-        i = 0
-        # compare the strings, character by character
-        while (a_start + i) < end and (b_start + i) < end:
-            a_char = STRING[a_start + i]
-            b_char = STRING[b_start + i]
-            i += 1
-            if a_char == b_char:
-                continue
-            if a_char < b_char:
-                return -1
-            if a_char > b_char:
-                return 1
-
-        # whichever string is shorter
-        return (end - b_start) - (end - a_start)
-    
     traversed = []
     if bucket.start_indices == []:
         return []
     if bucket.sub_buckets == {}:
-        arr = sorted(bucket.start_indices, key=functools.cmp_to_key(cmp_func))
+        arr = sorted(bucket.start_indices, key=lambda item: STRING[item:])
         return arr
     else:
         for key in sorted(bucket.sub_buckets):
@@ -347,15 +325,15 @@ def testAlignerInit():
     print(time.time() - start_time)
 
 def testRadixSort():
-    s = 'ACGTAGCCG' * 1000 + '$'
+    # s = 'ACGTAGCCG' * 70000 + '$'
     # s = 'ACGACGACG$'
     # naive_suffix_array(s)
-    # s = ''
-    # with open('./genome.fa') as f:
-    #     s = f.readline()
-    #     s = f.readline() + '$'
-    print(get_suffix_array(s) == naive_suffix_array(s))
-    # get_suffix_array(s)
+    s = ''
+    with open('./genome.fa') as f:
+        s = f.readline()
+        s = f.readline() + '$'
+    # print(get_suffix_array(s) == naive_suffix_array(s))
+    get_suffix_array(s)
     
 
 testRadixSort()
