@@ -12,6 +12,8 @@
 """
 
 import sys # DO NOT EDIT THIS
+import ctypes
+import ctypes.util
 import functools
 import numpy as np
 import time
@@ -20,8 +22,17 @@ from shared import *
 ALPHABET = [TERMINATOR] + BASES
 radix_k = 2
 prefix_length = 50
-STRING = ''
+f = open('./genome.fa', 'rb')
+STRING = f.readlines()[1:][0]
+f.close()
 
+libc_name = ctypes.util.find_library("c")
+libc = ctypes.CDLL(libc_name)
+libc.memcmp.argtypes = (
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+    ctypes.c_size_t,
+)
 class Bucket:
     def __init__(self, bucket_id, start_indices, k):
         self.bucket_id = bucket_id
@@ -55,11 +66,35 @@ def lex_traverse(bucket):
     Recursively returns all indices of all strings of all sub buckets of a bucket 
     in lexicographic order
     """
+    # Slow but doesn't use a lot of memory
+    def cmp_func(a, b) -> int:
+        n = len(STRING)
+        a_start = a
+        b_start = b
+        a_len = n - a_start
+        b_len = n - b_start
+        min_len = min(a_len, b_len)
+
+        # call C's memcmp (!)
+        str1_p = ctypes.c_char_p(STRING)
+        str2_p = ctypes.c_char_p(STRING)
+        str1_p = ctypes.cast(str1_p, ctypes.c_void_p)
+        str2_p = ctypes.cast(str2_p, ctypes.c_void_p)
+        str1_p.value += a_start
+        str2_p.value += b_start
+        cmp_value = libc.memcmp(str1_p, str2_p, min_len)
+
+        if cmp_value != 0:
+            return cmp_value
+        else:
+            # whichever string is shorter
+            return (n - b_start) - (n - a_start)
+        
     traversed = []
     if bucket.start_indices == []:
         return []
     if bucket.sub_buckets == {}:
-        arr = sorted(bucket.start_indices, key=lambda item: STRING[item:])
+        arr = sorted(bucket.start_indices, key=functools.cmp_to_key(cmp_func))
         return arr
     else:
         for key in sorted(bucket.sub_buckets):
@@ -327,11 +362,7 @@ def testAlignerInit():
 def testRadixSort():
     # s = 'ACGTAGCCG' * 70000 + '$'
     # s = 'ACGACGACG$'
-    # naive_suffix_array(s)
-    s = ''
-    with open('./genome.fa') as f:
-        s = f.readline()
-        s = f.readline() + '$'
+    s = STRING
     # print(get_suffix_array(s) == naive_suffix_array(s))
     get_suffix_array(s)
     
