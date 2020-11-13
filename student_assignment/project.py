@@ -20,11 +20,12 @@ from shared import *
 ALPHABET = [TERMINATOR] + BASES
 radix_k = 2
 prefix_length = 50
+STRING = ''
 
 class Bucket:
-    def __init__(self, bucket_id, str_arr, k):
+    def __init__(self, bucket_id, start_indices, k):
         self.bucket_id = bucket_id
-        self.str_arr = str_arr
+        self.start_indices = start_indices
         self.k = k
         self.sub_buckets = {}
     
@@ -36,11 +37,11 @@ class Bucket:
             return {}
         
         buckets = {}
-        for p in self.str_arr:
+        for p in self.start_indices:
             start = self.k * prefix_length
-            char = p[1][start:start+50]
+            char = STRING[(p+start):(p+start+50)]
             if char in buckets:
-                buckets[char].str_arr.append(p)
+                buckets[char].start_indices.append(p)
             else:
                 new_bucket = Bucket(char, [p], self.k + 1)
                 buckets[char] = new_bucket
@@ -49,22 +50,22 @@ class Bucket:
             
         self.sub_buckets = buckets
     
-def lex_traverse(bucket, s):
+def lex_traverse(bucket):
     """
-    Recursively returns a tuple of all indices of all strings of all sub buckets of a bucket 
+    Recursively returns all indices of all strings of all sub buckets of a bucket 
     in lexicographic order
     """
     # Slow but doesn't use a lot of memory
     def cmp_func(a, b):
         # Returns -1 if a<b, 0 if a=b, 1 if a>b
-        a_start = a[0]
-        b_start = b[0]
-        end = len(s)
+        a_start = a
+        b_start = a
+        end = len(STRING)
         i = 0
         # compare the strings, character by character
         while (a_start + i) < end and (b_start + i) < end:
-            a_char = s[a_start + i]
-            b_char = s[b_start + i]
+            a_char = STRING[a_start + i]
+            b_char = STRING[b_start + i]
             i += 1
             if a_char == b_char:
                 continue
@@ -77,14 +78,14 @@ def lex_traverse(bucket, s):
         return (end - b_start) - (end - a_start)
     
     traversed = []
-    if bucket.str_arr == []:
+    if bucket.start_indices == []:
         return []
     if bucket.sub_buckets == {}:
-        arr = sorted(bucket.str_arr, key=functools.cmp_to_key(cmp_func))
+        arr = sorted(bucket.start_indices, key=functools.cmp_to_key(cmp_func))
         return arr
     else:
         for key in sorted(bucket.sub_buckets):
-            traversed.extend(lex_traverse(bucket.sub_buckets[key], s))
+            traversed.extend(lex_traverse(bucket.sub_buckets[key]))
     return traversed
         
         
@@ -110,17 +111,13 @@ def get_suffix_array(s):
     [8, 7, 5, 3, 1, 6, 4, 0, 2]
     """
     start_time = time.time()
-    str_arr = []
+    global STRING
+    STRING = s
     n = len(s)
-    for i in range(n):
-        if i + (prefix_length * radix_k) + 1> n:
-            str_padded = s[i:].ljust(radix_k + 1)
-        else:
-            str_padded = s[i:i+(prefix_length * radix_k)+1]
-        str_arr.append((i, str_padded))
-    main_bucket = Bucket('MAIN', str_arr, 0)
+    start_indices = [i for i in range(n)]
+    main_bucket = Bucket('MAIN', start_indices, 0)
     main_bucket.get_sub_buckets()
-    radix_sorted = [int(x[0]) for x in lex_traverse(main_bucket, s)]
+    radix_sorted = [x for x in lex_traverse(main_bucket)]
     print('radix: ' + str((time.time() - start_time) * 1000))
     return radix_sorted
 
@@ -350,13 +347,13 @@ def testAlignerInit():
     print(time.time() - start_time)
 
 def testRadixSort():
-    # s = 'ACGTAGCCG' * 1000 + '$'
+    s = 'ACGTAGCCG' * 1000 + '$'
     # s = 'ACGACGACG$'
     # naive_suffix_array(s)
-    s = ''
-    with open('./genome_short.fa') as f:
-        # s = f.readline()
-        s = f.readline() + '$'
+    # s = ''
+    # with open('./genome.fa') as f:
+    #     s = f.readline()
+    #     s = f.readline() + '$'
     print(get_suffix_array(s) == naive_suffix_array(s))
     # get_suffix_array(s)
     
