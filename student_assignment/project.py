@@ -18,6 +18,7 @@ from shared import *
 
 ALPHABET = [TERMINATOR] + BASES
 radix_k = 2
+prefix_length = 50
 
 class Bucket:
     def __init__(self, bucket_id, str_arr, k):
@@ -28,14 +29,15 @@ class Bucket:
     
     def get_sub_buckets(self):
         """
-        Recursively generates sub buckets using the kth character of the strings
+        Recursively generates sub buckets using the kth set of prefix_length characters of the strings
         """
         if self.k >= radix_k:
             return {}
         
         buckets = {}
         for p in self.str_arr:
-            char = p[1][self.k]
+            start = self.k * prefix_length
+            char = p[1][start:start+50]
             if char in buckets:
                 buckets[char].str_arr.append(p)
             else:
@@ -55,7 +57,8 @@ def lex_traverse(bucket, s):
     if bucket.str_arr == []:
         return []
     if bucket.sub_buckets == {}:
-        return sorted(bucket.str_arr, key=lambda item: s[item[0]:])
+        arr = sorted(bucket.str_arr, key=lambda item: s[item[0]:])
+        return arr
     else:
         for key in sorted(bucket.sub_buckets):
             traversed.extend(lex_traverse(bucket.sub_buckets[key], s))
@@ -66,7 +69,7 @@ def naive_suffix_array(s):
     start_time = time.time()
     index_suffix_dict = {i:s[i:] for i in range(len(s))}
     a = [k for k, v in sorted(index_suffix_dict.items(), key=lambda item: item[1])]
-    # print('naive: ' + str((time.time() - start_time) * 1000))
+    print('naive: ' + str((time.time() - start_time) * 1000))
     # print(a)
     return a
     
@@ -87,17 +90,15 @@ def get_suffix_array(s):
     str_arr = []
     n = len(s)
     for i in range(n):
-        if i + radix_k + 1> n:
+        if i + (prefix_length * radix_k) + 1> n:
             str_padded = s[i:].ljust(radix_k + 1)
         else:
-            str_padded = s[i:i+radix_k+1]
+            str_padded = s[i:i+(prefix_length * radix_k)+1]
         str_arr.append((i, str_padded))
     main_bucket = Bucket('MAIN', str_arr, 0)
     main_bucket.get_sub_buckets()
     radix_sorted = [int(x[0]) for x in lex_traverse(main_bucket, s)]
     print('radix: ' + str((time.time() - start_time) * 1000))
-    # print(radix_sorted)
-    # print(naive_suffix_array(s))
     return radix_sorted
 
 def get_bwt(s, sa):
@@ -332,8 +333,10 @@ def testRadixSort():
     s = ''
     with open('./genome.fa') as f:
         s = f.readline()
-        s = f.readline() + '$' 
+        s = f.readline() + '$'
+    # print(get_suffix_array(s) == naive_suffix_array(s))
     get_suffix_array(s)
+    
 
 testRadixSort()
 # testAlignerInit()
