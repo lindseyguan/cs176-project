@@ -17,7 +17,7 @@ import numpy as np
 from shared import *
 
 ALPHABET = [TERMINATOR] + BASES
-radix_k = 5
+radix_k = 2
 
 class Bucket:
     def __init__(self, bucket_id, str_arr, k):
@@ -326,14 +326,14 @@ def testAlignerInit():
     print(time.time() - start_time)
 
 def testRadixSort():
-    s = 'ACGTAGCCG' * 10000 + '$'
+    # s = 'ACGTAGCCG' * 10000 + '$'
     # s = 'ACGACGACG$'
     # naive_suffix_array(s)
-    for i in range(1, 15):
-        global radix_k
-        radix_k = i
-        print(i)
-        get_suffix_array(s)
+    s = ''
+    with open('./genome.fa') as f:
+        s = f.readline()
+        s = f.readline() + '$' 
+    get_suffix_array(s)
 
 testRadixSort()
 # testAlignerInit()
