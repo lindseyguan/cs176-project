@@ -22,9 +22,7 @@ from shared import *
 ALPHABET = [TERMINATOR] + BASES
 radix_k = 2
 prefix_length = 50
-f = open('./genome.fa', 'rb')
-STRING = f.readlines()[1:][0]
-f.close()
+STRING = ''
 
 libc_name = ctypes.util.find_library("c")
 libc = ctypes.CDLL(libc_name)
@@ -100,15 +98,7 @@ def lex_traverse(bucket):
         for key in sorted(bucket.sub_buckets):
             traversed.extend(lex_traverse(bucket.sub_buckets[key]))
     return traversed
-        
-        
-def naive_suffix_array(s):
-    start_time = time.time()
-    index_suffix_dict = {i:s[i:] for i in range(len(s))}
-    a = [k for k, v in sorted(index_suffix_dict.items(), key=lambda item: item[1])]
-    print('naive: ' + str((time.time() - start_time) * 1000))
-    # print(a)
-    return a
+
     
 def get_suffix_array(s):
     """
@@ -133,6 +123,18 @@ def get_suffix_array(s):
     radix_sorted = [x for x in lex_traverse(main_bucket)]
     print('radix: ' + str((time.time() - start_time) * 1000))
     return radix_sorted
+
+        
+def naive_suffix_array(s):
+    """
+    Naive implementation of suffix array generation, only used to check correctness
+    """
+    start_time = time.time()
+    index_suffix_dict = {i:s[i:] for i in range(len(s))}
+    a = [k for k, v in sorted(index_suffix_dict.items(), key=lambda item: item[1])]
+    print('naive: ' + str((time.time() - start_time) * 1000))
+    # print(a)
+    return a
 
 def get_bwt(s, sa):
     """
@@ -362,8 +364,12 @@ def testAlignerInit():
 def testRadixSort():
     # s = 'ACGTAGCCG' * 70000 + '$'
     # s = 'ACGACGACG$'
-    s = STRING
+    # s = STRING
     # print(get_suffix_array(s) == naive_suffix_array(s))
+    s = ''
+    f = open('./genome_shortest.fa', 'rb')
+    s = f.readlines()[0:][0]
+    f.close()
     get_suffix_array(s)
     
 
