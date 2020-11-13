@@ -65,14 +65,25 @@ def get_suffix_array(s):
     [8, 7, 5, 3, 1, 6, 4, 0, 2]
     """
     start_time = time.time()
-    suffixes = [(i, len(s)) for i in range(0, len(s))]
-    s = s.encode()
-    string_bb = bytearray(s)
-    string_p = ctypes.cast(s, ctypes.c_char_p)
-    string_p2 = (ctypes.c_char * len(s)).from_buffer(string_bb)
-    string_ptr = ctypes.cast(string_p2, ctypes.c_void_p).value
-    sorted_suffixes = sort_substrings(suffixes, string_ptr)
-    print("memcmp sort: " + str((time.time() - start_time) * 1000))
+    prefix_length = 50
+    bucket_dict = {}
+    for i in range(n):
+        key = s[i:i+prefix_length]
+        if s[i:i+prefix_length] in bucket_dict:
+            bucket_dict[key].append(i)
+        else:
+            bucket_dict[key] = [i]
+    sorted_suffixes = []
+    for key in np.sort(list(bucket_dict.keys())):
+        suffixes = [(i, len(s)) for i in bucket_dict[key]]
+        s = s.encode()
+        string_bb = bytearray(s)
+        string_p = ctypes.cast(s, ctypes.c_char_p)
+        string_p2 = (ctypes.c_char * len(s)).from_buffer(string_bb)
+        string_ptr = ctypes.cast(string_p2, ctypes.c_void_p).value
+        sorted_bucket = sort_substrings(suffixes, string_ptr)
+        sorted_suffixes.extend(sorted_bucket)
+        print("memcmp sort: " + str((time.time() - start_time) * 1000))
     return [s[0] for s in sorted_suffixes]
 
 def naive_suffix_array(s):
@@ -313,14 +324,14 @@ def testAlignerInit():
 
 def testRadixSort():
     # s = 'ACGTAGCCG' * 2000 + '$'
-    # s = 'ACTGGTTACCCTACTGATTAGGACTC$'
+    s = 'ACTGGTTACCCTACTGATTAGGACTC$'
     # s = STRING
     # print(get_suffix_array(s) == naive_suffix_array(s))
-    s = ''
-    with open('./genome.fa') as f:
-        s = f.readline()
-        s = f.readline() + '$'
-    get_suffix_array(s)
+    # s = ''
+    # with open('./genome.fa') as f:
+    #     s = f.readline()
+    #     s = f.readline() + '$'
+    print(get_suffix_array(s) == naive_suffix_array(s))
     
 
 testRadixSort()
