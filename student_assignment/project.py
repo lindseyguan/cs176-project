@@ -12,8 +12,9 @@
 """
 
 import sys # DO NOT EDIT THIS
-import time # DELETE THIS LATER
+import functools
 import numpy as np
+import time
 from shared import *
 
 ALPHABET = [TERMINATOR] + BASES
@@ -53,11 +54,33 @@ def lex_traverse(bucket, s):
     Recursively returns a tuple of all indices of all strings of all sub buckets of a bucket 
     in lexicographic order
     """
+    # Slow but doesn't use a lot of memory
+    def cmp_func(a, b):
+        # Returns -1 if a<b, 0 if a=b, 1 if a>b
+        a_start = a[0]
+        b_start = b[0]
+        end = len(s)
+        i = 0
+        # compare the strings, character by character
+        while (a_start + i) < end and (b_start + i) < end:
+            a_char = s[a_start + i]
+            b_char = s[b_start + i]
+            i += 1
+            if a_char == b_char:
+                continue
+            if a_char < b_char:
+                return -1
+            if a_char > b_char:
+                return 1
+
+        # whichever string is shorter
+        return (end - b_start) - (end - a_start)
+    
     traversed = []
     if bucket.str_arr == []:
         return []
     if bucket.sub_buckets == {}:
-        arr = sorted(bucket.str_arr, key=lambda item: s[item[0]:])
+        arr = sorted(bucket.str_arr, key=functools.cmp_to_key(cmp_func))
         return arr
     else:
         for key in sorted(bucket.sub_buckets):
@@ -327,15 +350,15 @@ def testAlignerInit():
     print(time.time() - start_time)
 
 def testRadixSort():
-    # s = 'ACGTAGCCG' * 10000 + '$'
+    # s = 'ACGTAGCCG' * 1000 + '$'
     # s = 'ACGACGACG$'
     # naive_suffix_array(s)
     s = ''
-    with open('./genome.fa') as f:
-        s = f.readline()
+    with open('./genome_short.fa') as f:
+        # s = f.readline()
         s = f.readline() + '$'
-    # print(get_suffix_array(s) == naive_suffix_array(s))
-    get_suffix_array(s)
+    print(get_suffix_array(s) == naive_suffix_array(s))
+    # get_suffix_array(s)
     
 
 testRadixSort()
