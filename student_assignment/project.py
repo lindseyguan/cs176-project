@@ -20,85 +20,36 @@ import time
 from shared import *
 
 ALPHABET = [TERMINATOR] + BASES
-radix_k = 2
-prefix_length = 50
-STRING = ''
 
 libc_name = ctypes.util.find_library("c")
 libc = ctypes.CDLL(libc_name)
 libc.memcmp.argtypes = (
-    ctypes.c_void_p,
-    ctypes.c_void_p,
+    ctypes.c_size_t,
+    ctypes.c_size_t,
     ctypes.c_size_t,
 )
-class Bucket:
-    def __init__(self, bucket_id, start_indices, k):
-        self.bucket_id = bucket_id
-        self.start_indices = start_indices
-        self.k = k
-        self.sub_buckets = {}
-    
-    def get_sub_buckets(self):
-        """
-        Recursively generates sub buckets using the kth set of prefix_length characters of the strings
-        """
-        if self.k >= radix_k:
-            return {}
-        
-        buckets = {}
-        for p in self.start_indices:
-            start = self.k * prefix_length
-            char = STRING[(p+start):(p+start+50)]
-            if char in buckets:
-                buckets[char].start_indices.append(p)
-            else:
-                new_bucket = Bucket(char, [p], self.k + 1)
-                buckets[char] = new_bucket
-        for b in buckets.values():
-            b.get_sub_buckets()
-            
-        self.sub_buckets = buckets
-    
-def lex_traverse(bucket):
-    """
-    Recursively returns all indices of all strings of all sub buckets of a bucket 
-    in lexicographic order
-    """
-    # Slow but doesn't use a lot of memory
-    def cmp_func(a, b) -> int:
-        n = len(STRING)
-        a_start = a
-        b_start = b
-        a_len = n - a_start
-        b_len = n - b_start
-        min_len = min(a_len, b_len)
+
+def sort_substrings(suffixes, string_ptr):
+    def cmp_func(a, b):
+        a_start, a_end = a
+        b_start, b_end = b
+        a_len = a_end - a_start
+        b_len = b_end - b_start
+        min_len = a_len
+        if b_len < a_len:
+            min_len = b_len
 
         # call C's memcmp (!)
-        str1_p = ctypes.c_char_p(STRING)
-        str2_p = ctypes.c_char_p(STRING)
-        str1_p = ctypes.cast(str1_p, ctypes.c_void_p)
-        str2_p = ctypes.cast(str2_p, ctypes.c_void_p)
-        str1_p.value += a_start
-        str2_p.value += b_start
-        cmp_value = libc.memcmp(str1_p, str2_p, min_len)
+        cmp_value = libc.memcmp(string_ptr + a_start, string_ptr + b_start, min_len)
 
         if cmp_value != 0:
             return cmp_value
         else:
             # whichever string is shorter
-            return (n - b_start) - (n - a_start)
-        
-    traversed = []
-    if bucket.start_indices == []:
-        return []
-    if bucket.sub_buckets == {}:
-        arr = sorted(bucket.start_indices, key=functools.cmp_to_key(cmp_func))
-        return arr
-    else:
-        for key in sorted(bucket.sub_buckets):
-            traversed.extend(lex_traverse(bucket.sub_buckets[key]))
-    return traversed
+            return b_len - a_len
 
+    suffixes.sort(key=functools.cmp_to_key(cmp_func))
+    return suffixes
     
 def get_suffix_array(s):
     """
@@ -114,17 +65,16 @@ def get_suffix_array(s):
     [8, 7, 5, 3, 1, 6, 4, 0, 2]
     """
     start_time = time.time()
-    global STRING
-    STRING = s
-    n = len(s)
-    start_indices = [i for i in range(n)]
-    main_bucket = Bucket('MAIN', start_indices, 0)
-    main_bucket.get_sub_buckets()
-    radix_sorted = [x for x in lex_traverse(main_bucket)]
-    print('radix: ' + str((time.time() - start_time) * 1000))
-    return radix_sorted
+    suffixes = [(i, len(s)) for i in range(0, len(s))]
+    s = s.encode()
+    string_bb = bytearray(s)
+    string_p = ctypes.cast(s, ctypes.c_char_p)
+    string_p2 = (ctypes.c_char * len(s)).from_buffer(string_bb)
+    string_ptr = ctypes.cast(string_p2, ctypes.c_void_p).value
+    sorted_suffixes = sort_substrings(suffixes, string_ptr)
+    print("memcmp sort: " + str((time.time() - start_time) * 1000))
+    return [s[0] for s in sorted_suffixes]
 
-        
 def naive_suffix_array(s):
     """
     Naive implementation of suffix array generation, only used to check correctness
@@ -362,14 +312,14 @@ def testAlignerInit():
     print(time.time() - start_time)
 
 def testRadixSort():
-    # s = 'ACGTAGCCG' * 70000 + '$'
-    # s = 'ACGACGACG$'
+    # s = 'ACGTAGCCG' * 2000 + '$'
+    # s = 'ACTGGTTACCCTACTGATTAGGACTC$'
     # s = STRING
     # print(get_suffix_array(s) == naive_suffix_array(s))
     s = ''
-    f = open('./genome_shortest.fa', 'rb')
-    s = f.readlines()[0:][0]
-    f.close()
+    with open('./genome.fa') as f:
+        s = f.readline()
+        s = f.readline() + '$'
     get_suffix_array(s)
     
 
