@@ -64,6 +64,9 @@ def get_suffix_array(s):
     >>> get_suffix_array('GATAGACA$')
     [8, 7, 5, 3, 1, 6, 4, 0, 2]
     """
+    n = len(s)
+    s = s.encode()
+    
     start_time = time.time()
     prefix_length = 50
     bucket_dict = {}
@@ -75,15 +78,14 @@ def get_suffix_array(s):
             bucket_dict[key] = [i]
     sorted_suffixes = []
     for key in np.sort(list(bucket_dict.keys())):
-        suffixes = [(i, len(s)) for i in bucket_dict[key]]
-        s = s.encode()
+        suffixes = [(i, n) for i in bucket_dict[key]]
         string_bb = bytearray(s)
         string_p = ctypes.cast(s, ctypes.c_char_p)
-        string_p2 = (ctypes.c_char * len(s)).from_buffer(string_bb)
+        string_p2 = (ctypes.c_char * n).from_buffer(string_bb)
         string_ptr = ctypes.cast(string_p2, ctypes.c_void_p).value
         sorted_bucket = sort_substrings(suffixes, string_ptr)
         sorted_suffixes.extend(sorted_bucket)
-        print("memcmp sort: " + str((time.time() - start_time) * 1000))
+    print("memcmp sort: " + str((time.time() - start_time) * 1000))
     return [s[0] for s in sorted_suffixes]
 
 def naive_suffix_array(s):
@@ -327,10 +329,10 @@ def testRadixSort():
     s = 'ACTGGTTACCCTACTGATTAGGACTC$'
     # s = STRING
     # print(get_suffix_array(s) == naive_suffix_array(s))
-    # s = ''
-    # with open('./genome.fa') as f:
-    #     s = f.readline()
-    #     s = f.readline() + '$'
+    s = ''
+    with open('./genome.fa') as f:
+        s = f.readline()
+        s = f.readline() + '$'
     print(get_suffix_array(s) == naive_suffix_array(s))
     
 
