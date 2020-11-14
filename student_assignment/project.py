@@ -98,6 +98,7 @@ def get_bwt(s, sa):
     L = ''
     n = len(sa)
     for i in sa:
+        print(s)
         L += s[(i + n - 1) % n]
     return L
 
@@ -228,8 +229,14 @@ class Aligner:
                     so don't stress if you are close. Server is 1.25 times faster than the i7 CPU on my computer
 
         """
-        self.sa = get_suffix_array(genome_sequence)
+        self.genome_sa = get_suffix_array(genome_sequence)
+        self.genome_bwt = get_bwt(genome_sequence, self.genome_sa)
+        self.genome_F = get_F(self.genome_bwt)
+        self.genome_M = get_M(self.genome_F)
+        self.genome_occ = get_occ(self.genome_bwt)
+        
         self.known_genes = known_genes
+        self.isoform_indices = self.processIsoforms()
 
     def align(self, read_sequence):
         """
@@ -249,6 +256,47 @@ class Aligner:
         Time limit: 0.5 seconds per read on average on the provided data.
         """
         pass
+    
+    def processIsoforms(self):
+        """
+        Returns dictionary of known gene indices grouped by isoform
+        
+        Output:
+            indices: dictionary of lists, where each element is (start, end) in the genome
+        """
+        genes = {}
+        for gene in self.known_genes:
+            for isoform in gene.isoforms:
+                id = isoform.id
+                genes[id] = {}
+                for exon in sorted(isoform.exons, key=lambda item:item.start):
+                    genes[id] = (exon.start, exon.end)
+        return genes
+                
+    def mmp(self, read, i, mapKnownGenes=True):
+        """
+        Returns a set of tuples where each element is a ((sa_start, sa_end), (start, end)) 
+        tuple representing start and end indices of the read in the genome, and the chunk of the read we're using
+        
+        Input:
+            read: the pattern string
+            i: index at which to start considering the read
+            M: M array to be used for suffix matching
+            occ: occ array to be used for suffix matching
+            mapKnownGenes: if true, map to known genes. if false, map to genome
+        """
+        p_n = len(read)
+        if i >= p_n:
+            return {}
+        pattern = read[i:][::-1]
+        max_prefix = exact_suffix_matches(pattern, self.genome_M, self.genome_occ)
+        sa_indices, length = max_prefix
+        if sa_indices == None:
+            return {}
+        start = sa_indices[0]
+        end = sa_indices[1]
+        return {((start, end), (i, i + length))}.union(self.genome_M, read, i + length, mapKnownGenes)
+        
 
 # TEST FUNCTIONS 
 
@@ -271,11 +319,11 @@ def testBWTFunctions():
 
 def testAlignerInit():
     # Testing runtime of Aligner init
-    genome_sequence = ''
-    with open('./genome.fa') as f:
-        genome_sequence = f.readline()
-        genome_sequence = f.readline() + '$'
-
+    # genome_sequence = ''
+    # with open('./genome.fa') as f:
+    #     genome_sequence = f.readline()
+    #     genome_sequence = f.readline() + '$'
+    genome_sequence = 'ACTGGTTACCCTACTGATTAGGACTC$'
     genes = set()
 
     gene_id = ''
@@ -309,6 +357,7 @@ def testAlignerInit():
 
     start_time = time.time()
     aligner = Aligner(genome_sequence, genes)
+    print(aligner.mmp('TACCG', 0))
     print(time.time() - start_time)
 
 def testRadixSort():
@@ -323,5 +372,5 @@ def testRadixSort():
     get_suffix_array(s)
     
 
-testRadixSort()
-# testAlignerInit()
+# testRadixSort()
+testAlignerInit()
