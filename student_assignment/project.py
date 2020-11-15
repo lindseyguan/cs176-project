@@ -72,7 +72,7 @@ def get_suffix_array(s):
     string_p2 = (ctypes.c_char * len(s)).from_buffer(string_bb)
     string_ptr = ctypes.cast(string_p2, ctypes.c_void_p).value
     sorted_suffixes = sort_substrings(suffixes, string_ptr)
-    print("memcmp sort: " + str((time.time() - start_time) * 1000))
+    # print("memcmp sort: " + str((time.time() - start_time) * 1000))
     return [s[0] for s in sorted_suffixes]
 
 def naive_suffix_array(s):
@@ -98,7 +98,6 @@ def get_bwt(s, sa):
     L = ''
     n = len(sa)
     for i in sa:
-        print(s)
         L += s[(i + n - 1) % n]
     return L
 
@@ -205,7 +204,7 @@ def exact_suffix_matches(p, M, occ):
         old_ep = ep
         sp = M[p[i]] + occ[p[i]][sp - 1]
         ep = M[p[i]] + occ[p[i]][ep] - 1
-        if ep <= sp:
+        if ep < sp:
             i += 1
             sp = old_sp
             ep = old_ep
@@ -229,11 +228,15 @@ class Aligner:
                     so don't stress if you are close. Server is 1.25 times faster than the i7 CPU on my computer
 
         """
-        self.genome_sa = get_suffix_array(genome_sequence)
-        self.genome_bwt = get_bwt(genome_sequence, self.genome_sa)
-        self.genome_F = get_F(self.genome_bwt)
-        self.genome_M = get_M(self.genome_F)
-        self.genome_occ = get_occ(self.genome_bwt)
+        self.genome_sequence = '$' + genome_sequence
+        print('genome: ' + self.genome_sequence)
+        self.reverse_genome = self.genome_sequence[::-1]
+        print('reverse genome: ' + self.reverse_genome)
+        self.reverse_sa = get_suffix_array(self.reverse_genome)
+        self.reverse_bwt = get_bwt(self.reverse_genome, self.reverse_sa)
+        self.reverse_F = get_F(self.reverse_bwt)
+        self.reverse_M = get_M(self.reverse_F)
+        self.reverse_occ = get_occ(self.reverse_bwt)
         
         self.known_genes = known_genes
         self.isoform_indices = self.processIsoforms()
@@ -276,7 +279,8 @@ class Aligner:
     def mmp(self, read, i, mapKnownGenes=True):
         """
         Returns a set of tuples where each element is a ((sa_start, sa_end), (start, end)) 
-        tuple representing start and end indices of the read in the genome, and the chunk of the read we're using
+        tuple representing start and end indices of the read in the 
+        genome, and the chunk of the read we're using
         
         Input:
             read: the pattern string
@@ -288,34 +292,35 @@ class Aligner:
         p_n = len(read)
         if i >= p_n:
             return {}
-        pattern = read[i:][::-1]
-        max_prefix = exact_suffix_matches(pattern, self.genome_M, self.genome_occ)
+        pattern = read[i:]
+        max_prefix = exact_suffix_matches(pattern, self.reverse_M, self.reverse_occ)
         sa_indices, length = max_prefix
         if sa_indices == None:
             return {}
         start = sa_indices[0]
         end = sa_indices[1]
-        return {((start, end), (i, i + length))}.union(self.genome_M, read, i + length, mapKnownGenes)
+        # FIX ME
+        return {((start, end), (i, i + length))}.union(self.mmp(read, i + length, mapKnownGenes))
         
 
 # TEST FUNCTIONS 
 
 def testBWTFunctions():
-    # s = 'ACGT' * 10 + '$'
-    # # print(s)
-    # sa = get_suffix_array(s)
-    # # print(sa)
-    # L = get_bwt(s, sa)
-    # # print(L)
-    # F = get_F(L)
-    # # print(F)
-    # M = get_M(F)
-    # # print(M)
-    # occ = get_occ(L)
-    # # print(occ)
-    # matches = exact_suffix_matches('$', M, occ)
-    # # print(matches)
-    pass
+    s = 'ACTGGTTACCCTACTGATTAGGACTC$'
+    # print(s)
+    sa = get_suffix_array(s)
+    for i in range(len(sa)):
+        print(str(i) + ': ' + str(sa[i]) + ' -> ' + s[sa[i]:])
+    L = get_bwt(s, sa)
+    # print(L)
+    F = get_F(L)
+    # print(F)
+    M = get_M(F)
+    # print(M)
+    occ = get_occ(L)
+    # print(occ)
+    matches = exact_suffix_matches('CTC', M, occ)
+    print(matches)
 
 def testAlignerInit():
     # Testing runtime of Aligner init
@@ -323,7 +328,7 @@ def testAlignerInit():
     # with open('./genome.fa') as f:
     #     genome_sequence = f.readline()
     #     genome_sequence = f.readline() + '$'
-    genome_sequence = 'ACTGGTTACCCTACTGATTAGGACTC$'
+    genome_sequence = 'ACTGGTTACCCTACTGATTAGGACTC'
     genes = set()
 
     gene_id = ''
@@ -371,6 +376,6 @@ def testRadixSort():
         s = f.readline() + '$'
     get_suffix_array(s)
     
-
 # testRadixSort()
-testAlignerInit()
+# testAlignerInit()
+# testBWTFunctions()
