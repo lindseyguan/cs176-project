@@ -229,9 +229,7 @@ class Aligner:
 
         """
         self.genome_sequence = '$' + genome_sequence
-        print('genome: ' + self.genome_sequence)
         self.reverse_genome = self.genome_sequence[::-1]
-        print('reverse genome: ' + self.reverse_genome)
         self.reverse_sa = get_suffix_array(self.reverse_genome)
         self.reverse_bwt = get_bwt(self.reverse_genome, self.reverse_sa)
         self.reverse_F = get_F(self.reverse_bwt)
@@ -299,5 +297,5 @@ class Aligner:
         start = sa_indices[0]
         end = sa_indices[1]
         # FIX ME
-        return {((start, end), (i - length, i))}.union(self.mmp(read, i - length, mapKnownGenes))
+        return {((start, end), (i - length, i))}.union(self.mms(read, i - length, mapKnownGenes))
 
