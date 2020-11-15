@@ -276,7 +276,7 @@ class Aligner:
                     genes[id] = (exon.start, exon.end)
         return genes
                 
-    def mmp(self, read, i, mapKnownGenes=True):
+    def mms(self, read, i, mapKnownGenes=True):
         """
         Returns a set of tuples where each element is a ((sa_start, sa_end), (start, end)) 
         tuple representing start and end indices of the read in the 
@@ -284,98 +284,20 @@ class Aligner:
         
         Input:
             read: the pattern string
-            i: index at which to start considering the read
+            i: consider read[:i] for exact_suffix_matches
             M: M array to be used for suffix matching
             occ: occ array to be used for suffix matching
             mapKnownGenes: if true, map to known genes. if false, map to genome
         """
-        p_n = len(read)
-        if i >= p_n:
+        if i <= 0:
             return {}
-        pattern = read[i:]
-        max_prefix = exact_suffix_matches(pattern, self.reverse_M, self.reverse_occ)
-        sa_indices, length = max_prefix
+        pattern = read[:i]
+        max_suffix = exact_suffix_matches(pattern, self.reverse_M, self.reverse_occ)
+        sa_indices, length = max_suffix
         if sa_indices == None:
             return {}
         start = sa_indices[0]
         end = sa_indices[1]
         # FIX ME
-        return {((start, end), (i, i + length))}.union(self.mmp(read, i + length, mapKnownGenes))
-        
+        return {((start, end), (i - length, i))}.union(self.mmp(read, i - length, mapKnownGenes))
 
-# TEST FUNCTIONS 
-
-def testBWTFunctions():
-    s = 'ACTGGTTACCCTACTGATTAGGACTC$'
-    # print(s)
-    sa = get_suffix_array(s)
-    for i in range(len(sa)):
-        print(str(i) + ': ' + str(sa[i]) + ' -> ' + s[sa[i]:])
-    L = get_bwt(s, sa)
-    # print(L)
-    F = get_F(L)
-    # print(F)
-    M = get_M(F)
-    # print(M)
-    occ = get_occ(L)
-    # print(occ)
-    matches = exact_suffix_matches('CTC', M, occ)
-    print(matches)
-
-def testAlignerInit():
-    # Testing runtime of Aligner init
-    # genome_sequence = ''
-    # with open('./genome.fa') as f:
-    #     genome_sequence = f.readline()
-    #     genome_sequence = f.readline() + '$'
-    genome_sequence = 'ACTGGTTACCCTACTGATTAGGACTC'
-    genes = set()
-
-    gene_id = ''
-    isoforms = []
-
-    isoform_id = ''
-    exons = []
-
-    exon_id = ''
-    start = 0
-    end = 0
-        
-    for line in reversed(list(open("./genes.tab"))):
-        elements = line.split('\t')
-        if elements[0] == 'exon':
-            ex = Exon(elements[1], int(elements[2]), int(elements[3]))
-            exons.append(ex)
-        elif elements[0] == 'isoform':
-            iso = Isoform(elements[1], exons)
-            isoforms.append(iso)
-            exons = []
-        elif elements[0] == 'gene':
-            g = Gene(elements[1], isoforms)
-            genes.add(g)
-            isoforms = []
-
-    test_exons = [Exon('ENSE00001802701', 8250613, 8250877), Exon('ENSE00001729938', 8252369, 8252739)]
-    test_isoforms = [Isoform('ENST00000433210', test_exons)]
-    test_gene = Gene('ENSG00000231620', test_isoforms)
-    assert(test_gene in genes)
-
-    start_time = time.time()
-    aligner = Aligner(genome_sequence, genes)
-    print(aligner.mmp('TACCG', 0))
-    print(time.time() - start_time)
-
-def testRadixSort():
-    # s = 'ACGTAGCCG' * 2000 + '$'
-    # s = 'ACTGGTTACCCTACTGATTAGGACTC$'
-    # s = STRING
-    # print(get_suffix_array(s) == naive_suffix_array(s))
-    s = ''
-    with open('./genome.fa') as f:
-        s = f.readline()
-        s = f.readline() + '$'
-    get_suffix_array(s)
-    
-# testRadixSort()
-# testAlignerInit()
-# testBWTFunctions()
