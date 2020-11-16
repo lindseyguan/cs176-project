@@ -228,8 +228,8 @@ class Aligner:
                     so don't stress if you are close. Server is 1.25 times faster than the i7 CPU on my computer
 
         """
-        self.genome_sequence = '$' + genome_sequence
-        self.reverse_genome = self.genome_sequence[::-1]
+        self.genome_sequence = genome_sequence
+        self.reverse_genome = self.genome_sequence[::-1] + '$'
         self.reverse_sa = get_suffix_array(self.reverse_genome)
         self.reverse_bwt = get_bwt(self.reverse_genome, self.reverse_sa)
         self.reverse_F = get_F(self.reverse_bwt)
@@ -256,7 +256,22 @@ class Aligner:
 
         Time limit: 0.5 seconds per read on average on the provided data.
         """
-        pass
+        reverse_seeds = self.mms(read_sequence[::-1], len(read_sequence))
+        seeds = []
+        n = len(self.genome_sequence)
+        read_length = len(read_sequence)
+        for match in reverse_seeds:
+            genome_match, read_match = match
+            g_start, g_end = genome_match
+            r_start, r_end = read_match
+            for i in range(g_start, g_end):
+                reverse_start = self.reverse_sa[i]
+                o_start = n - (reverse_start + (r_end - r_start))
+                original_r_end = read_length - r_start
+                original_r_start = read_length - r_end
+                seeds.append((o_start, (original_r_start, original_r_end)))
+        print(seeds)
+        
     
     def processIsoforms(self):
         """

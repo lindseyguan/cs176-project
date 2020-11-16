@@ -14,7 +14,8 @@ from shared import *
 from project import *
 
 def testBWTFunctions():
-    s = 'ACTGGTTACCCTACTGATTAGGACTC$'
+    # s = 'ACTGGTTACCCTACTGATTAGGACTC$'
+    s = 'ACACT$'
     # print(s)
     sa = get_suffix_array(s)
     for i in range(len(sa)):
@@ -27,7 +28,7 @@ def testBWTFunctions():
     # print(M)
     occ = get_occ(L)
     # print(occ)
-    matches = exact_suffix_matches('CTC', M, occ)
+    matches = exact_suffix_matches('G', M, occ)
     print(matches)
 
 def testAlignerInit():
@@ -36,7 +37,7 @@ def testAlignerInit():
     # with open('./genome.fa') as f:
     #     genome_sequence = f.readline()
     #     genome_sequence = f.readline() + '$'
-    genome_sequence = 'ACTGGTTACCCTACTGATTAGGACTC'
+    genome_sequence = 'ACTGGTTACCCTACTGA'
     genes = set()
 
     gene_id = ''
@@ -69,25 +70,11 @@ def testAlignerInit():
     assert(test_gene in genes)
 
     # test MMS
-    start_time = time.time()
     aligner = Aligner(genome_sequence, genes)
-    read = 'TACCG'
+    read = 'TACCTA'
     n = len(genome_sequence)
     r_n = len(read)
-    mms = aligner.mms(read[::-1], r_n)
-    print(mms)
-    sa_naive = naive_suffix_array(genome_sequence[::-1] + '$')
-    # for i in range(n):
-    #     print(str(i) + ': ' + str(sa_naive[i]) + ' -> ' + genome_sequence[sa_naive[i]:n])
-    for match in mms:
-        genome_match, read_match = match
-        g_start, g_end = genome_match
-        r_start, r_end = read_match
-        print('pattern: ' + read[::-1][r_start:r_end])
-        for i in range(g_start, g_end):
-            print('match: ' + str(sa_naive[i]) + ', or ' + genome_sequence[::-1][sa_naive[i]:])
-        
-    print(time.time() - start_time)
+    aligner.align(read)
 
 def testRadixSort():
     # s = 'ACGTAGCCG' * 2000 + '$'
