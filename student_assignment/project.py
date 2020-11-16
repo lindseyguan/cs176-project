@@ -228,6 +228,7 @@ class Aligner:
                     so don't stress if you are close. Server is 1.25 times faster than the i7 CPU on my computer
 
         """
+        # BWT-related structures for the reverse genome
         self.genome_sequence = genome_sequence
         self.reverse_genome = self.genome_sequence[::-1] + '$'
         self.reverse_sa = get_suffix_array(self.reverse_genome)
@@ -237,7 +238,15 @@ class Aligner:
         self.reverse_occ = get_occ(self.reverse_bwt)
         
         self.known_genes = known_genes
-        self.isoform_indices = self.processIsoforms()
+        
+        # BWT-related structures for reverse isoforms
+        self.exon_indices = {}
+        self.isoform_lengths = {}
+        self.isoform_index_map = {}
+        self.isoform_sas = {}
+        self.isoform_M = {}
+        self.isoform_occ = {}
+        self.processIsoforms()
 
     def align(self, read_sequence):
         """
@@ -256,7 +265,88 @@ class Aligner:
 
         Time limit: 0.5 seconds per read on average on the provided data.
         """
-        reverse_seeds = self.mms(read_sequence[::-1], len(read_sequence))
+        pass
+        
+    def alignKnown(self, read_sequence):
+        """
+        Returns an alignment to known isoforms. 
+        """
+        # reverse read for finding MMPs using exact suffix match
+        reverse_read = read_sequence[::-1]
+        read_length = len(read_sequence)
+        
+        # isoform_seeds is a dictionary mapping isoform ids to lists of
+        # seeds identified in the isoform
+        isoform_seeds = {}
+        for isoform in self.exon_indices.keys():
+            isoform_seeds[isoform] = self.findSeeds(read_sequence, isoform)
+        print(isoform_seeds)
+        # cluster seeds
+    
+    def findSeeds(self, read_sequence, isoform_id):
+        """
+        Finds seeds for a given isoform id.
+        """
+        reverse_read = read_sequence[::-1]
+        read_length = len(read_sequence)
+        n = self.isoform_lengths[isoform_id]
+        
+        reverse_seeds = self.mms(reverse_read, read_length, self.isoform_M[isoform_id], self.isoform_occ[isoform_id])
+        print(reverse_seeds)
+        seeds = []
+        for match in reverse_seeds:
+            genome_match, read_match = match
+            g_start, g_end = genome_match
+            r_start, r_end = read_match
+            for i in range(g_start, g_end):
+                reverse_start = self.isoform_sas[isoform_id][i]
+                o_start = n - (reverse_start + (r_end - r_start))
+                original_r_end = read_length - r_start
+                original_r_start = read_length - r_end
+                seeds.append((self.isoform_index_map[isoform_id][o_start], (original_r_start, original_r_end)))
+        return seeds
+        
+    def processIsoforms(self):
+        """
+        Populates 
+            self.exon_indices
+            self.isoform_lengths
+            self.isoform_index_map
+            self.isoform_sas
+            self.isoform_M
+            self.isoform_occ
+        """
+        for gene in self.known_genes:
+            for isoform in gene.isoforms:
+                i_id = isoform.id
+                # the map_indices array is needed to keep track of where in the genome
+                # a given MMP maps to, since self.mms() will return matches to the
+                # concatenated sequence passed into the method
+                map_indices = []
+                self.exon_indices[i_id] = []
+                sequence = ''
+                for exon in sorted(isoform.exons, key=lambda item:item.start):
+                    start = exon.start
+                    end = exon.end
+                    self.exon_indices[i_id].append((start, end))
+                    map_indices.extend([i for i in range(start, end)])
+                    sequence += self.genome_sequence[start:end]
+                self.isoform_lengths[i_id] = len(sequence)
+                self.isoform_index_map[i_id] = map_indices
+                reverse_sequence = sequence[::-1] + '$'
+                self.isoform_sas[i_id] = get_suffix_array(reverse_sequence)
+                bwt = get_bwt(reverse_sequence, self.isoform_sas[i_id])
+                F = get_F(bwt)
+                self.isoform_M[i_id] = get_M(F)
+                self.isoform_occ[i_id] = get_occ(bwt)   
+        return
+
+    def alignGenome(self, read_sequence):
+        """
+        Returns an alignment to known isoforms. Separate from alignIsoforms since we
+        constructed BWT-related structures in the __init__ and don't want to repeat those operations
+        """
+        reverse_seeds = self.mms(read_sequence[::-1], len(read_sequence), self.reverse_M, self.reverse_occ)
         seeds = []
         n = len(self.genome_sequence)
         read_length = len(read_sequence)
@@ -271,25 +361,9 @@ class Aligner:
                 original_r_start = read_length - r_end
                 seeds.append((o_start, (original_r_start, original_r_end)))
         print(seeds)
+        # cluster seeds
         
-    
-    def processIsoforms(self):
-        """
-        Returns dictionary of known gene indices grouped by isoform
-        
-        Output:
-            indices: dictionary of lists, where each element is (start, end) in the genome
-        """
-        genes = {}
-        for gene in self.known_genes:
-            for isoform in gene.isoforms:
-                id = isoform.id
-                genes[id] = {}
-                for exon in sorted(isoform.exons, key=lambda item:item.start):
-                    genes[id] = (exon.start, exon.end)
-        return genes
-                
-    def mms(self, read, i, mapKnownGenes=True):
+    def mms(self, read, i, M, occ):
         """
         Returns a set of tuples where each element is a ((sa_start, sa_end), (start, end)) 
         tuple representing start and end indices of the read in the 
@@ -298,19 +372,15 @@ class Aligner:
         Input:
             read: the pattern string
             i: consider read[:i] for exact_suffix_matches
-            M: M array to be used for suffix matching
-            occ: occ array to be used for suffix matching
-            mapKnownGenes: if true, map to known genes. if false, map to genome
+            M: M array for use by exact_suffix_matches
+            occ: occ array for use by exact_suffix_matches
         """
         if i <= 0:
             return {}
-        pattern = read[:i]
-        max_suffix = exact_suffix_matches(pattern, self.reverse_M, self.reverse_occ)
+        max_suffix = exact_suffix_matches(read[:i], M, occ)
         sa_indices, length = max_suffix
         if sa_indices == None:
             return {}
         start = sa_indices[0]
         end = sa_indices[1]
-        # FIX ME
-        return {((start, end), (i - length, i))}.union(self.mms(read, i - length, mapKnownGenes))
-
+        return {((start, end), (i - length, i))}.union(self.mms(read, i - length, M, occ))

@@ -38,6 +38,7 @@ def testAlignerInit():
     #     genome_sequence = f.readline()
     #     genome_sequence = f.readline() + '$'
     genome_sequence = 'ACTGGTTACCCTACTGA'
+    read = 'TACCTA'
     genes = set()
 
     gene_id = ''
@@ -64,17 +65,11 @@ def testAlignerInit():
             genes.add(g)
             isoforms = []
 
-    test_exons = [Exon('ENSE00001802701', 8250613, 8250877), Exon('ENSE00001729938', 8252369, 8252739)]
-    test_isoforms = [Isoform('ENST00000433210', test_exons)]
-    test_gene = Gene('ENSG00000231620', test_isoforms)
-    assert(test_gene in genes)
-
-    # test MMS
+    # test MMP for known genes
+    # isoform should be 'CTGGCCCTACT'
+    # original was 'ACTGGTTACCCTACTGA'
     aligner = Aligner(genome_sequence, genes)
-    read = 'TACCTA'
-    n = len(genome_sequence)
-    r_n = len(read)
-    aligner.align(read)
+    aligner.alignGenome(read)
 
 def testRadixSort():
     # s = 'ACGTAGCCG' * 2000 + '$'
