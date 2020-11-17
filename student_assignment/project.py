@@ -23,6 +23,7 @@ from shared import *
 ALPHABET = [TERMINATOR] + BASES
 MIN_INTRON_SIZE = 20
 MAX_INTRON_SIZE = 10000
+ANCHOR_LIMIT = 20
 
 libc_name = ctypes.util.find_library("c")
 libc = ctypes.CDLL(libc_name)
@@ -346,7 +347,6 @@ class Aligner:
         
         reverse_seeds = self.mms(reverse_read, read_length, self.isoform_M[isoform_id], self.isoform_occ[isoform_id])
         seeds = []
-        anchor_limit = 20
         anchor_seeds = [] # all the alignments that map less than 20 times are selected as anchors
         for match in reverse_seeds:
             genome_match, read_match = match
@@ -376,17 +376,17 @@ class Aligner:
                         count += 1
                         if self.isoform_index_map[isoform_id][i] < self.isoform_index_map[isoform_id][i + 1] - 1:
                             seeds.append(((last_end, i + 1), (last_r_end, last_r_end + count)))
-                            if g_end - g_start < anchor_limit:
+                            if g_end - g_start < ANCHOR_LIMIT:
                                 seeds.append(((last_end, i + 1), (last_r_end, last_r_end + count)))
                             last_r_end = last_r_end + count
                             last_end = i + 1
                             count = 0
                     seeds.append(((last_end, o_end), (last_r_end, original_r_end)))
-                    if g_end - g_start < anchor_limit:
+                    if g_end - g_start < ANCHOR_LIMIT:
                         seeds.append(((last_end, o_end), (last_r_end, original_r_end)))
                 else:
                     seeds.append(((o_start, o_end), (original_r_start, original_r_end)))
-                    if g_end - g_start < anchor_limit:
+                    if g_end - g_start < ANCHOR_LIMIT:
                         anchor_seeds.append(((o_start, o_end), (original_r_start, original_r_end)))
         return seeds, anchor_seeds
 
@@ -397,6 +397,7 @@ class Aligner:
         """
         reverse_seeds = self.mms(read_sequence[::-1], len(read_sequence), self.reverse_M, self.reverse_occ)
         seeds = []
+        anchor_seeds = []
         n = len(self.genome_sequence)
         read_length = len(read_sequence)
         for match in reverse_seeds:
@@ -406,9 +407,25 @@ class Aligner:
             for i in range(g_start, g_end):
                 reverse_start = self.reverse_sa[i]
                 o_start = n - (reverse_start + (r_end - r_start))
+                o_end = o_start + (r_end - r_start)
                 original_r_end = read_length - r_start
                 original_r_start = read_length - r_end
-                seeds.append((o_start, (original_r_start, original_r_end)))
+                seed = ((o_start, o_end), (original_r_start, original_r_end))
+                seeds.append(seed)
+                if o_start - o_end < ANCHOR_LIMIT:
+                    anchor_seeds.append(seed)
+        best_alignment = None
+        best_score = -math.inf
+        windows = self.findWindows(seeds, anchor_seeds)
+        for w in windows:
+            alignments = self.findAlignments(w)
+            for a in alignments:
+                # score = self.scoreAlignment(a, isoform_sequence)
+                score = 0
+                if score > best_score:
+                    best_score = score
+                    best_alignment = a
+        return self.formatAlignment(best_alignment[1], best_alignment[0])         
         # cluster seeds
         
     def mms(self, read, i, M, occ):
