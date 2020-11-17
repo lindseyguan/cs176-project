@@ -37,8 +37,8 @@ def testAlignerInit():
     # with open('./genome.fa') as f:
     #     genome_sequence = f.readline()
     #     genome_sequence = f.readline() + '$'
-    genome_sequence = 'ACTGGTTACCCTACTGA'
-    read = 'TACCTA'
+    genome_sequence = 'ACTGGTTACCCTACTGACCG'
+    read = 'GGAATCCC'
     genes = set()
 
     gene_id = ''
@@ -51,7 +51,7 @@ def testAlignerInit():
     start = 0
     end = 0
         
-    for line in reversed(list(open("./genes.tab"))):
+    for line in reversed(list(open("./genes_short.tab"))):
         elements = line.split('\t')
         if elements[0] == 'exon':
             ex = Exon(elements[1], int(elements[2]), int(elements[3]))
@@ -66,10 +66,9 @@ def testAlignerInit():
             isoforms = []
 
     # test MMP for known genes
-    # isoform should be 'CTGGCCCTACT'
-    # original was 'ACTGGTTACCCTACTGA'
     aligner = Aligner(genome_sequence, genes)
     aligner.alignGenome(read)
+    aligner.alignKnown(read)
 
 def testRadixSort():
     # s = 'ACGTAGCCG' * 2000 + '$'

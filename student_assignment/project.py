@@ -276,35 +276,78 @@ class Aligner:
         read_length = len(read_sequence)
         
         # isoform_seeds is a dictionary mapping isoform ids to lists of
-        # seeds identified in the isoform
+        # seeds and anchor seeds identified in the isoform (indexing isoform, not genome)
         isoform_seeds = {}
+        print(read_sequence)
         for isoform in self.exon_indices.keys():
             isoform_seeds[isoform] = self.findSeeds(read_sequence, isoform)
-        print(isoform_seeds)
+        for i in sorted(isoform_seeds[isoform][1], key=lambda item: item[1][0]):
+            print(i)
         # cluster seeds
+        
+        # Map back to genome indices
+        # o_start = n - (reverse_start + (r_end - r_start))
+        # o_end = o_start + (r_end - r_start)
+        # original_r_end = read_length - r_start
+        # original_r_start = read_length - r_end
+        # seeds.append((self.isoform_index_map[isoform_id][o_start], self.isoform_index_map[isoform_id][o_end], (original_r_start, original_r_end)))
     
     def findSeeds(self, read_sequence, isoform_id):
         """
-        Finds seeds for a given isoform id.
+        Finds seeds and marked anchor seeds for a given isoform id.
         """
         reverse_read = read_sequence[::-1]
         read_length = len(read_sequence)
         n = self.isoform_lengths[isoform_id]
         
         reverse_seeds = self.mms(reverse_read, read_length, self.isoform_M[isoform_id], self.isoform_occ[isoform_id])
-        print(reverse_seeds)
         seeds = []
+        anchor_limit = 20
+        anchor_seeds = [] # all the alignments that map less than 20 times are selected as anchors
         for match in reverse_seeds:
             genome_match, read_match = match
             g_start, g_end = genome_match
             r_start, r_end = read_match
+            
             for i in range(g_start, g_end):
                 reverse_start = self.isoform_sas[isoform_id][i]
+                
                 o_start = n - (reverse_start + (r_end - r_start))
+                o_end = o_start + (r_end - r_start)
+                genome_start = self.isoform_index_map[isoform_id][o_start]
+                if o_end >= len(self.isoform_index_map[isoform_id]):
+                    genome_end = self.isoform_index_map[isoform_id][o_end - 1] + 1
+                else:
+                    genome_end = self.isoform_index_map[isoform_id][o_end]
+                
                 original_r_end = read_length - r_start
                 original_r_start = read_length - r_end
-                seeds.append((self.isoform_index_map[isoform_id][o_start], (original_r_start, original_r_end)))
-        return seeds
+                
+                # if there is an exon junction here, create separate seeds
+                # print('isoform length ' + str(o_end - o_start))
+                # print('genome length ' + str(genome_end - genome_start))
+                if genome_end - genome_start > o_end - o_start:
+                    last_end = o_start
+                    last_r_end = original_r_start
+                    count = 0
+                    for i in range(o_start, o_end - 1):
+                        count += 1
+                        if self.isoform_index_map[isoform_id][i] < self.isoform_index_map[isoform_id][i + 1] - 1:
+                            print(i)
+                            seeds.append(((last_end, i + 1), (last_r_end, last_r_end + count)))
+                            if g_end - g_start < anchor_limit:
+                                seeds.append(((last_end, i + 1), (last_r_end, last_r_end + count)))
+                            last_r_end = last_r_end + count
+                            last_end = i + 1
+                            count = 0
+                    seeds.append(((last_end, o_end), (last_r_end, original_r_end)))
+                    if g_end - g_start < anchor_limit:
+                        seeds.append(((last_end, o_end), (last_r_end, original_r_end)))
+                else:
+                    seeds.append(((o_start, o_end), (original_r_start, original_r_end)))
+                    if g_end - g_start < anchor_limit:
+                        anchor_seeds.append(((o_start, o_end), (original_r_start, original_r_end)))
+        return seeds, anchor_seeds
         
     def processIsoforms(self):
         """
@@ -331,6 +374,7 @@ class Aligner:
                     self.exon_indices[i_id].append((start, end))
                     map_indices.extend([i for i in range(start, end)])
                     sequence += self.genome_sequence[start:end]
+                print(sequence)
                 self.isoform_lengths[i_id] = len(sequence)
                 self.isoform_index_map[i_id] = map_indices
                 reverse_sequence = sequence[::-1] + '$'
@@ -360,7 +404,6 @@ class Aligner:
                 original_r_end = read_length - r_start
                 original_r_start = read_length - r_end
                 seeds.append((o_start, (original_r_start, original_r_end)))
-        print(seeds)
         # cluster seeds
         
     def mms(self, read, i, M, occ):
