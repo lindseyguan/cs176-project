@@ -20,6 +20,8 @@ import time
 from shared import *
 
 ALPHABET = [TERMINATOR] + BASES
+MIN_INTRON_SIZE = 20
+MAX_INTRON_SIZE = 10000
 
 libc_name = ctypes.util.find_library("c")
 libc = ctypes.CDLL(libc_name)
@@ -247,6 +249,42 @@ class Aligner:
         self.isoform_M = {}
         self.isoform_occ = {}
         self.processIsoforms()
+    
+    def processIsoforms(self):
+        """
+        Populates 
+            self.exon_indices
+            self.isoform_lengths
+            self.isoform_index_map
+            self.isoform_sas
+            self.isoform_M
+            self.isoform_occ
+        """
+        for gene in self.known_genes:
+            for isoform in gene.isoforms:
+                i_id = isoform.id
+                # the map_indices array is needed to keep track of where in the genome
+                # a given MMP maps to, since self.mms() will return matches to the
+                # concatenated sequence passed into the method
+                map_indices = []
+                self.exon_indices[i_id] = []
+                sequence = ''
+                for exon in sorted(isoform.exons, key=lambda item:item.start):
+                    start = exon.start
+                    end = exon.end
+                    self.exon_indices[i_id].append((start, end))
+                    map_indices.extend([i for i in range(start, end)])
+                    sequence += self.genome_sequence[start:end]
+                print(sequence)
+                self.isoform_lengths[i_id] = len(sequence)
+                self.isoform_index_map[i_id] = map_indices
+                reverse_sequence = sequence[::-1] + '$'
+                self.isoform_sas[i_id] = get_suffix_array(reverse_sequence)
+                bwt = get_bwt(reverse_sequence, self.isoform_sas[i_id])
+                F = get_F(bwt)
+                self.isoform_M[i_id] = get_M(F)
+                self.isoform_occ[i_id] = get_occ(bwt)   
+        return
 
     def align(self, read_sequence):
         """
@@ -277,12 +315,12 @@ class Aligner:
         
         # isoform_seeds is a dictionary mapping isoform ids to lists of
         # seeds and anchor seeds identified in the isoform (indexing isoform, not genome)
-        isoform_seeds = {}
+        # isoform_seeds = {}
+        # isoform_windows = {}
         print(read_sequence)
         for isoform in self.exon_indices.keys():
-            isoform_seeds[isoform] = self.findSeeds(read_sequence, isoform)
-        for i in sorted(isoform_seeds[isoform][1], key=lambda item: item[1][0]):
-            print(i)
+            seeds, anchor_seeds = self.findSeeds(read_sequence, isoform)
+            windows = self.findWindows(seeds, anchor_seeds)
         # cluster seeds
         
         # Map back to genome indices
@@ -348,42 +386,6 @@ class Aligner:
                     if g_end - g_start < anchor_limit:
                         anchor_seeds.append(((o_start, o_end), (original_r_start, original_r_end)))
         return seeds, anchor_seeds
-        
-    def processIsoforms(self):
-        """
-        Populates 
-            self.exon_indices
-            self.isoform_lengths
-            self.isoform_index_map
-            self.isoform_sas
-            self.isoform_M
-            self.isoform_occ
-        """
-        for gene in self.known_genes:
-            for isoform in gene.isoforms:
-                i_id = isoform.id
-                # the map_indices array is needed to keep track of where in the genome
-                # a given MMP maps to, since self.mms() will return matches to the
-                # concatenated sequence passed into the method
-                map_indices = []
-                self.exon_indices[i_id] = []
-                sequence = ''
-                for exon in sorted(isoform.exons, key=lambda item:item.start):
-                    start = exon.start
-                    end = exon.end
-                    self.exon_indices[i_id].append((start, end))
-                    map_indices.extend([i for i in range(start, end)])
-                    sequence += self.genome_sequence[start:end]
-                print(sequence)
-                self.isoform_lengths[i_id] = len(sequence)
-                self.isoform_index_map[i_id] = map_indices
-                reverse_sequence = sequence[::-1] + '$'
-                self.isoform_sas[i_id] = get_suffix_array(reverse_sequence)
-                bwt = get_bwt(reverse_sequence, self.isoform_sas[i_id])
-                F = get_F(bwt)
-                self.isoform_M[i_id] = get_M(F)
-                self.isoform_occ[i_id] = get_occ(bwt)   
-        return
 
     def alignGenome(self, read_sequence):
         """
@@ -427,3 +429,22 @@ class Aligner:
         start = sa_indices[0]
         end = sa_indices[1]
         return {((start, end), (i - length, i))}.union(self.mms(read, i - length, M, occ))
+
+    def findWindows(self, seeds, anchor_seeds, window_size=MAX_INTRON_SIZE):
+        """
+            Return genomic windows in a 2D array of seeds
+        """
+        windows = []
+        for a in anchor_seeds:
+            window = []
+            # seeds are in the format ((i_s, i_e), (r_s, r_e))
+            window_start = a[0][0] - window_size
+            if window_start < 0:
+                window_start = 0
+            window_end = a[0][1] + window_size
+            for s in seeds:
+                if a != s and s[0][0] >= window_start and s[0][1] <= window_end:
+                    window.append(s)
+            windows.append(window)
+        return windows
+    
