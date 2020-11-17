@@ -16,6 +16,7 @@ import ctypes
 import ctypes.util
 import functools
 import numpy as np
+import math
 import time
 from shared import *
 
@@ -243,6 +244,7 @@ class Aligner:
         
         # BWT-related structures for reverse isoforms
         self.exon_indices = {}
+        self.isoform_sequences = {}
         self.isoform_lengths = {}
         self.isoform_index_map = {}
         self.isoform_sas = {}
@@ -275,7 +277,7 @@ class Aligner:
                     self.exon_indices[i_id].append((start, end))
                     map_indices.extend([i for i in range(start, end)])
                     sequence += self.genome_sequence[start:end]
-                print(sequence)
+                self.isoform_sequences[i_id] = sequence
                 self.isoform_lengths[i_id] = len(sequence)
                 self.isoform_index_map[i_id] = map_indices
                 reverse_sequence = sequence[::-1] + '$'
@@ -313,23 +315,27 @@ class Aligner:
         reverse_read = read_sequence[::-1]
         read_length = len(read_sequence)
         
-        # isoform_seeds is a dictionary mapping isoform ids to lists of
+        # seeds/anchor_seeds are a dictionaries mapping isoform ids to lists of
         # seeds and anchor seeds identified in the isoform (indexing isoform, not genome)
         # isoform_seeds = {}
         # isoform_windows = {}
         print(read_sequence)
+        best_alignment = () # tuple where first value is isoform id and second value is alignment
+        best_score = -math.inf
         for isoform in self.exon_indices.keys():
+            isoform_sequence = self.isoform_sequences[isoform]
             seeds, anchor_seeds = self.findSeeds(read_sequence, isoform)
             windows = self.findWindows(seeds, anchor_seeds)
-        # cluster seeds
-        
-        # Map back to genome indices
-        # o_start = n - (reverse_start + (r_end - r_start))
-        # o_end = o_start + (r_end - r_start)
-        # original_r_end = read_length - r_start
-        # original_r_start = read_length - r_end
-        # seeds.append((self.isoform_index_map[isoform_id][o_start], self.isoform_index_map[isoform_id][o_end], (original_r_start, original_r_end)))
-    
+            for w in windows:
+                alignments = self.findAlignments(w)
+                for a in alignments:
+                    # score = self.scoreAlignment(a, isoform_sequence)
+                    score = 0
+                    if score > best_score:
+                        best_score = score
+                        best_alignment = (isoform, a)
+        return self.formatAlignment(best_alignment[1], best_alignment[0])       
+
     def findSeeds(self, read_sequence, isoform_id):
         """
         Finds seeds and marked anchor seeds for a given isoform id.
@@ -362,8 +368,6 @@ class Aligner:
                 original_r_start = read_length - r_end
                 
                 # if there is an exon junction here, create separate seeds
-                # print('isoform length ' + str(o_end - o_start))
-                # print('genome length ' + str(genome_end - genome_start))
                 if genome_end - genome_start > o_end - o_start:
                     last_end = o_start
                     last_r_end = original_r_start
@@ -371,7 +375,6 @@ class Aligner:
                     for i in range(o_start, o_end - 1):
                         count += 1
                         if self.isoform_index_map[isoform_id][i] < self.isoform_index_map[isoform_id][i + 1] - 1:
-                            print(i)
                             seeds.append(((last_end, i + 1), (last_r_end, last_r_end + count)))
                             if g_end - g_start < anchor_limit:
                                 seeds.append(((last_end, i + 1), (last_r_end, last_r_end + count)))
@@ -436,15 +439,59 @@ class Aligner:
         """
         windows = []
         for a in anchor_seeds:
-            window = []
+            window = set()
             # seeds are in the format ((i_s, i_e), (r_s, r_e))
             window_start = a[0][0] - window_size
             if window_start < 0:
                 window_start = 0
             window_end = a[0][1] + window_size
             for s in seeds:
-                if a != s and s[0][0] >= window_start and s[0][1] <= window_end:
-                    window.append(s)
-            windows.append(window)
+                if s[0][0] >= window_start and s[0][1] <= window_end:
+                    window.add(s)
+            if window not in windows:
+                windows.append(window)
         return windows
     
+    def findAlignments(self, window):
+        """
+            Return list of sets of seeds in the windows, where seeds
+            are strictly increasing. We return the longest sets.
+            
+            Increasing = order is preserved between read and genome. If
+            there are multiple sequences that are the same length, return all of them.
+        """
+        w = sorted(window, key=lambda item: item[0][0])
+        store = []
+        def increasingSubsequence(sorted_window, output):
+            nonlocal store
+            if len(sorted_window) == 0: 
+                if len(output) != 0: 
+                    # storing result 
+                    store.append(output) 
+                return
+            increasingSubsequence(sorted_window[1:], output[:])
+            if len(output) == 0: 
+                increasingSubsequence(sorted_window[1:], sorted_window[:1]) 
+            elif sorted_window[0][1][0] > output[-1][1][0]: 
+                output.append(sorted_window[0]) 
+                increasingSubsequence(sorted_window[1:], output[:]) 
+        increasingSubsequence(w, [])
+        max_len = len(max(store, key=len))
+        return [s for s in store if len(s) == max_len]
+    
+    def scoreAlignment(self, seeds, sequence):
+        """
+            Returns score for this alignment via stitching
+        """
+        pass
+    
+    def formatAlignment(self, seeds, isoform_id=None):
+        """
+            Format alignment for project output. If isoform_id is passed in, we need to convert
+            indices back to genome indices. If not, we keep these indices.
+            
+            "We expect you to specify your alignment as a python list of k tuples of (start index, genome start
+            index, length)"
+        """
+        pass
+        
