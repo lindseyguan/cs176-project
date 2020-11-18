@@ -320,7 +320,7 @@ class Aligner:
         # seeds and anchor seeds identified in the isoform (indexing isoform, not genome)
         # isoform_seeds = {}
         # isoform_windows = {}
-        best_alignment = () # tuple where first value is isoform id and second value is alignment
+        best_alignment = (None, None) # tuple where first value is isoform id and second value is alignment
         best_score = -math.inf
         for isoform in self.exon_indices.keys():
             isoform_sequence = self.isoform_sequences[isoform]
@@ -329,11 +329,14 @@ class Aligner:
             for w in windows:
                 runs = self.findRuns(w)
                 for a in runs:
+                    print(str(a) + ' len: ' + str(len(a)))
+                    if a[0][1][0] != 0 or a[-1][1][1] != len(read_sequence):
+                        continue
                     score, alignment = self.findAlignment(read_sequence, a, isoform_sequence)
                     if score > best_score:
                         best_score = score
                         best_alignment = (isoform, alignment)
-        return self.formatAlignment(best_alignment[1], best_alignment[0])       
+        # print(self.formatAlignment(best_alignment[1], best_alignment[0])) 
 
     def findSeeds(self, read_sequence, isoform_id):
         """
@@ -423,7 +426,6 @@ class Aligner:
                     best_score = score
                     best_alignment = alignment
         return self.formatAlignment(best_alignment)         
-        # cluster seeds
         
     def mms(self, read, i, M, occ):
         """
@@ -453,7 +455,7 @@ class Aligner:
         """
         windows = []
         for a in anchor_seeds:
-            window = set()
+            window = []
             # seeds are in the format ((i_s, i_e), (r_s, r_e))
             window_start = a[0][0] - window_size
             if window_start < 0:
@@ -461,7 +463,7 @@ class Aligner:
             window_end = a[0][1] + window_size
             for s in seeds:
                 if s[0][0] >= window_start and s[0][1] <= window_end:
-                    window.add(s)
+                    window.append(s)
             if window not in windows:
                 windows.append(window)
         return windows
@@ -486,21 +488,19 @@ class Aligner:
             increasingSubsequence(sorted_window[1:], output[:])
             if len(output) == 0: 
                 increasingSubsequence(sorted_window[1:], sorted_window[:1]) 
-            elif sorted_window[0][1][0] > output[-1][1][0]: 
+            elif sorted_window[0][1][0] > output[-1][1][0] and sorted_window[0][0][0] > output[-1][0][0]: 
                 output.append(sorted_window[0]) 
                 increasingSubsequence(sorted_window[1:], output[:]) 
         increasingSubsequence(w, [])
         max_len = len(max(store, key=len))
-        return [s for s in store if len(s) == max_len]
+        seen = set()
+        return [s for s in store if len(s) == max_len and tuple(s) not in seen and not seen.add(tuple(s))]
     
     def findAlignment(self, read_sequence, seeds, isoform_sequence=None):
         """
             Returns best alignment and score
         """
-        print(isoform_sequence)
-        print(seeds)
-        print(read_sequence)
-        best_alignment = set()
+        best_alignment = []
         total_score = 0
         reference_sequence = None
         # If no sequence passed in, assume alignment to genome
@@ -512,19 +512,15 @@ class Aligner:
             reference_sequence = isoform_sequence
         # for every intron in the read
         for i in range(len(seeds) - 1):
-            best_alignment.add(seeds[i]) # all seeds make it to the best alignment
+            best_alignment.append(seeds[i]) # all seeds make it to the best alignment
             total_score += seeds[i][1][1] - seeds[i][1][0]
             best_indel_index = 0
             best_indel_score = 0
             read_intron = read_sequence[seeds[i][1][1]:seeds[i + 1][1][0]] # end of first seed to start of next
-            print('read intron: ' + read_intron)
-            print('indices ' + str(seeds[i][1][1]) + ', ' + str(seeds[i + 1][1][0]))
             read_intron_length = len(read_intron)
             reference_intron = reference_sequence[seeds[i][0][1]:seeds[i + 1][0][0]] # end of first seed to start of next
-            print('reference intron: ' + reference_intron)
             reference_intron_length = len(reference_intron)
             if read_intron_length == 0: # only consider gap penalty
-                print('gap penalty: ' + str((seeds[i + 1][0][0] - seeds[i][0][1]) * -1))
                 total_score += (seeds[i + 1][0][0] - seeds[i][0][1]) * -1
                 continue
             else:
@@ -535,7 +531,6 @@ class Aligner:
                         first_iso_seg = reference_intron[:j]
                         last_iso_seg = reference_intron[reference_intron_length - (read_intron_length - j):]
                         gap_penalty = (reference_intron_length - read_intron_length) * -1
-                        print('j = ' + str(j))
                         score = self.matchScore(first_read_seg, first_iso_seg) + self.matchScore(last_read_seg, last_iso_seg) + gap_penalty
                         if score > best_indel_score:
                             best_indel_index = j
@@ -544,13 +539,12 @@ class Aligner:
                     read_part_2 = read_sequence[seeds[i][1][1] + best_indel_index:seeds[i + 1][1][0]]
                     seed1 = ((seeds[i][0][1], seeds[i][0][1] + len(read_part_1)), (seeds[i][1][1], seeds[i][1][1] + best_indel_index))
                     seed2 = ((seeds[i + 1][0][0] - len(read_part_2), seeds[i + 1][0][0]), (seeds[i][1][1] + best_indel_index, seeds[i + 1][1][0]))
-                    best_alignment.add(seed1)
-                    best_alignment.add(seed2)
+                    best_alignment.append(seed1)
+                    best_alignment.append(seed2)
                     total_score += best_indel_score
                 else:
                     # If the read intron is longer than the reference intron, this is not a valid alignment (introduces gaps)
-                    return 0, set()
-        print('best alignment: ' + best_alignment)
+                    return 0, []
         return total_score, best_alignment
     
     def matchScore(self, seq1, seq2):
@@ -585,5 +579,15 @@ class Aligner:
             "We expect you to specify your alignment as a python list of k tuples of (start index, genome start
             index, length)"
         """
-        pass
+        alignment = []
+        if seeds == None:
+            return []
+        if isoform_id == None:
+            for s in seeds:
+                alignment.append((s[1][0], s[0][0], s[1][1] - s[1][0]))
+        else:
+            for s in seeds:
+                genome_start = self.isoform_index_map[isoform_id][s[0][0]]
+                alignment.append((s[1][0], genome_start, s[1][1] - s[1][0]))
+        return alignment
         

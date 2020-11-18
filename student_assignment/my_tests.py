@@ -38,7 +38,7 @@ def testAlignerInit():
     #     genome_sequence = f.readline()
     #     genome_sequence = f.readline() + '$'
     genome_sequence = 'ACTGGTTACCCTACTGACCG'
-    read = 'GGAATCCC'
+    read = 'GGAAT'
     genes = set()
 
     gene_id = ''
