@@ -238,9 +238,9 @@ class Aligner:
         start_time = time.time()
         self.genome_sequence = genome_sequence
         self.reverse_genome = self.genome_sequence[::-1] + '$'
-        self.reverse_sa = get_suffix_array(self.reverse_genome)
-        # with open('genome_suffix_array.json') as infile:
-        #     self.reverse_sa = json.load(infile)
+        # self.reverse_sa = get_suffix_array(self.reverse_genome)
+        with open('genome_suffix_array.json') as infile:
+            self.reverse_sa = json.load(infile)
         self.reverse_bwt = get_bwt(self.reverse_genome, self.reverse_sa)
         self.reverse_F = get_F(self.reverse_bwt)
         self.reverse_M = get_M(self.reverse_F)
@@ -257,7 +257,7 @@ class Aligner:
         self.isoform_M = {}
         self.isoform_occ = {}
         self.processIsoforms()
-        print('init time: ' + str(time.time() - start_time))
+        # print('init time: ' + str(time.time() - start_time))
     
     def processIsoforms(self):
         """
@@ -313,8 +313,13 @@ class Aligner:
         Time limit: 0.5 seconds per read on average on the provided data.
         """
         alignment = self.alignKnown(read_sequence)
-        if alignment == []:
-            alignment = self.alignGenome(read_sequence)
+        # if alignment == []:
+        #     alignment = self.alignGenome(read_sequence)
+
+        # alignment1 = self.alignKnown(read_sequence)
+        # alignment2 = self.alignGenome(read_sequence)
+        # print(alignment1)
+        # print(alignment2)
         return alignment
         
     def alignKnown(self, read_sequence):
@@ -339,15 +344,14 @@ class Aligner:
             windows = self.findWindows(seeds, anchor_seeds)
             for w in windows:
                 w_sorted = sorted(w, key=lambda item: item[0][0])
-                runs = self.findRuns(w_sorted)
-                for a in runs:
-                    if a[0][1][0] != 0 or a[-1][1][1] != read_length:
-                        continue
-                    score, alignment = self.findAlignment(read_sequence, a, isoform_sequence)
-                    if score > best_score:
-                        best_score = score
-                        best_alignment = (isoform, alignment)
-        print('align time for known: ' + str(time.time() - start_time))
+                run = self.findRuns(w_sorted)
+                if run[0][1][0] != 0 or run[-1][1][1] != read_length:
+                    continue
+                score, alignment = self.findAlignment(read_sequence, run, isoform_sequence)
+                if score > best_score:
+                    best_score = score
+                    best_alignment = (isoform, alignment)
+        # print('align time for known: ' + str(time.time() - start_time))
         return self.formatAlignment(best_alignment[1], best_alignment[0])
 
     def alignGenome(self, read_sequence):
@@ -392,7 +396,7 @@ class Aligner:
                 if score > best_score:
                     best_score = score
                     best_alignment = alignment
-        print('align time for genome: ' + str(time.time() - start_time))
+        # print('align time for genome: ' + str(time.time() - start_time))
         return self.formatAlignment(best_alignment)
 
     def findSeeds(self, read_sequence, isoform_id):
@@ -497,27 +501,8 @@ class Aligner:
             Increasing = order is preserved between read and genome. If
             there are multiple sequences that are the same length, return all of them.
         """
-        store = []
-        def increasingSubsequence(sorted_window, output):
-            nonlocal store
-            if len(sorted_window) == 0: 
-                if len(output) != 0: 
-                    # storing result 
-                    store.append(output) 
-                return
-            increasingSubsequence(sorted_window[1:], output[:])
-            if len(output) == 0: 
-                increasingSubsequence(sorted_window[1:], sorted_window[:1]) 
-            elif sorted_window[0][1][0] > output[-1][1][0] and sorted_window[0][0][0] > output[-1][0][0]: 
-                output.append(sorted_window[0]) 
-                increasingSubsequence(sorted_window[1:], output[:]) 
-        increasingSubsequence(window, [])
-        print(self.longestIncreasingSubsequence(window))
-        max_len = len(max(store, key=len))
-        seen = set()
-        ret = [s for s in store if len(s) == max_len and tuple(s) not in seen and not seen.add(tuple(s))]
-        print(ret)
-        return ret
+        store = self.longestIncreasingSubsequence(window)
+        return store
 
     def longestIncreasingSubsequence(self, window):
         N = len(window)
