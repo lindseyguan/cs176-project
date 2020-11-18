@@ -33,12 +33,13 @@ def testBWTFunctions():
 
 def testAlignerInit():
     # Testing runtime of Aligner init
-    genome_sequence = ''
-    with open('./genome.fa') as f:
-        genome_sequence = f.readline()
-        genome_sequence = f.readline() + '$'
-    # genome_sequence = 'ACTGGTTACCCTACTGACCG'
-    read = 'ATTACTCTTGGGAATGAAATCCTATCTATATAAGCTGTGGTTTGAAATCC'
+    # genome_sequence = ''
+    # with open('./genome.fa') as f:
+    #     genome_sequence = f.readline()
+    #     genome_sequence = f.readline() + '$'
+    genome_sequence = 'ACTGGTTACCCTACTGACCG'
+    # read = 'ATTACTCTTGGGAATGAAATCCTATCTATATAAGCTGTGGTTTGAAATCC'
+    read = 'ACTGCACCC'
     genes = set()
 
     gene_id = ''
@@ -51,7 +52,7 @@ def testAlignerInit():
     start = 0
     end = 0
         
-    for line in reversed(list(open("./genes.tab"))):
+    for line in reversed(list(open("./genes_short.tab"))):
         elements = line.split('\t')
         if elements[0] == 'exon':
             ex = Exon(elements[1], int(elements[2]), int(elements[3]))
@@ -67,10 +68,10 @@ def testAlignerInit():
 
     # test MMP for known genes
     aligner = Aligner(genome_sequence, genes)
-    print(aligner.alignGenome(read))
-    # aligner.alignKnown(read)
-    print(read)
-    print(genome_sequence[10359306:10359306+14])
+    # print(aligner.alignGenome(read))
+    aligner.alignKnown(read)
+    # print(read)
+    # print(genome_sequence[10359306:10359306+14])
     
     # test findSubsequence
     # window = {((10, 11), (4, 5)), ((4, 7), (5, 8)), ((8, 9), (3, 4)), ((7, 8), (4, 5)), ((1, 2), (4, 5)), ((2, 4), (0, 2)), ((8, 9), (2, 3))}

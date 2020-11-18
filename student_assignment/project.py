@@ -238,9 +238,9 @@ class Aligner:
         start_time = time.time()
         self.genome_sequence = genome_sequence
         self.reverse_genome = self.genome_sequence[::-1] + '$'
-        # self.reverse_sa = get_suffix_array(self.reverse_genome)
-        with open('genome_suffix_array.json') as infile:
-            self.reverse_sa = json.load(infile)
+        self.reverse_sa = get_suffix_array(self.reverse_genome)
+        # with open('genome_suffix_array.json') as infile:
+        #     self.reverse_sa = json.load(infile)
         self.reverse_bwt = get_bwt(self.reverse_genome, self.reverse_sa)
         self.reverse_F = get_F(self.reverse_bwt)
         self.reverse_M = get_M(self.reverse_F)
@@ -256,7 +256,7 @@ class Aligner:
         self.isoform_sas = {}
         self.isoform_M = {}
         self.isoform_occ = {}
-        # self.processIsoforms()
+        self.processIsoforms()
         print('init time: ' + str(time.time() - start_time))
     
     def processIsoforms(self):
@@ -511,11 +511,40 @@ class Aligner:
             elif sorted_window[0][1][0] > output[-1][1][0] and sorted_window[0][0][0] > output[-1][0][0]: 
                 output.append(sorted_window[0]) 
                 increasingSubsequence(sorted_window[1:], output[:]) 
-        increasingSubsequence(w, [])
+        increasingSubsequence(window, [])
+        print(self.longestIncreasingSubsequence(window))
         max_len = len(max(store, key=len))
         seen = set()
-        return [s for s in store if len(s) == max_len and tuple(s) not in seen and not seen.add(tuple(s))]
-    
+        ret = [s for s in store if len(s) == max_len and tuple(s) not in seen and not seen.add(tuple(s))]
+        print(ret)
+        return ret
+
+    def longestIncreasingSubsequence(self, window):
+        N = len(window)
+        P = [0] * N
+        M = [0] * (N + 1)
+        L = 0
+        for i in range(N):
+            lo = 1
+            hi = L
+            while lo <= hi:
+                mid = (lo + hi) // 2
+                if (window[M[mid]][1][0] < window[i][1][0]):
+                    lo = mid + 1
+                else:
+                    hi = mid - 1
+            newL = lo
+            P[i] = M[newL - 1]
+            M[newL] = i
+            if (newL > L):
+                L = newL
+        S = []
+        k = M[L]
+        for i in range(L - 1, -1, -1):
+            S.append(window[k])
+            k = P[k]
+        return S[::-1]
+
     def findAlignment(self, read_sequence, seeds, isoform_sequence=None):
         """
             Returns best alignment and score
