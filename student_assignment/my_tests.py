@@ -72,7 +72,7 @@ def testAlignerInit():
     
     # test findSubsequence
     window = {((10, 11), (4, 5)), ((4, 7), (5, 8)), ((8, 9), (3, 4)), ((7, 8), (4, 5)), ((1, 2), (4, 5)), ((2, 4), (0, 2)), ((8, 9), (2, 3))}
-    sub = aligner.findAlignments(window)
+    sub = aligner.findRuns(window)
     for seq in sub:
         print(seq)
 
