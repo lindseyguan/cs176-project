@@ -38,7 +38,7 @@ def testAlignerInit():
         genome_sequence = f.readline()
         genome_sequence = f.readline() + '$'
     # genome_sequence = 'ACTGGTTACCCTACTGACCG'
-    read = 'ATTACTCTTGGGAATGAAATCCTATCTATATAAGCTGTGGTTTGAAATCC'
+    # read = 'ATTACTCTTGGGAATGAAATCCTATCTATATAAGCTGTGGTTTGAAATCC'
     # read = 'ACTGCACCC'
     genes = set()
 
@@ -66,9 +66,24 @@ def testAlignerInit():
             genes.add(g)
             isoforms = []
 
-    # test MMP for known genes
+    reads = []
+    for line in list(open("./reads.fa")):
+        if line[0] != '>':
+            reads.append(line.rstrip())
+    # test for known genes
     aligner = Aligner(genome_sequence, genes)
-    aligner.align(read)
+    alignments = []
+    hit_count = 0
+    start_time = time.time()
+    for r in reads:
+        a = aligner.align(r)
+        alignments.append(a)
+        if a:
+            hit_count += 1
+    print('read count: ' + str(len(reads)))
+    print('total time: ' + str(time.time() - start_time))
+    print('hit rate: ' + str(hit_count/len(reads)))
+
     # print(aligner.alignGenome(read))
     # aligner.alignKnown(read)
     # print(read)
