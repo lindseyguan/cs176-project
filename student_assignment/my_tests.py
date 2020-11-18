@@ -10,6 +10,7 @@ import ctypes.util
 import functools
 import numpy as np
 import time
+from tqdm import tqdm
 from shared import *
 from project import *
 
@@ -196,15 +197,15 @@ def runFullVersion():
     alignments = []
     hit_count = 0
     start_time = time.time()
-    for i in range(10):
-        print(reads[i])
+    subset_reads = 100
+    for i in tqdm(range(subset_reads)):
         a = aligner.align(reads[i])
         alignments.append(a)
         if a:
             hit_count += 1
-    print('read count: ' + str(len(reads)))
+    print('read count: ' + str(len(alignments)))
     print('total time: ' + str(time.time() - start_time))
-    print('total hit rate: ' + str(hit_count / len(reads)))
+    print('total hit rate: ' + str(hit_count / len(alignments)))
 
 def runSingleRead():
     read = 'TCTCGGGGTGAATACCTCTTATCGCGATACCTCCGGGGACTAGTGCGCCA'
@@ -231,8 +232,11 @@ def runSingleRead():
 
     start_time = time.time()
     aligner = Aligner(genome_sequence, genes)
-    print(aligner.align(read))
+    alignment = aligner.align(read)
+    print(alignment)
     print('total time: ' + str(time.time() - start_time))
+    print(read)
+    print(genome_sequence[alignment[0][1]:alignment[0][2]])
 
 def testRadixSort():
     # s = 'ACGTAGCCG' * 2000 + '$'
@@ -249,5 +253,5 @@ def testRadixSort():
 # testAlignerInit()
 # testBWTFunctions()
 # runKnownAndUnknown()
-# runFullVersion()
-runSingleRead()
+runFullVersion()
+# runSingleRead()
