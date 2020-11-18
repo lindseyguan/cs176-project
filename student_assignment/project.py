@@ -15,6 +15,7 @@ import sys # DO NOT EDIT THIS
 import ctypes
 import ctypes.util
 import functools
+import json
 import numpy as np
 import math
 import time
@@ -24,7 +25,7 @@ ALPHABET = [TERMINATOR] + BASES
 MIN_INTRON_SIZE = 20
 MAX_INTRON_SIZE = 10000
 MAX_MISMATCHES = 6
-ANCHOR_LIMIT = 20
+ANCHOR_LIMIT = 50
 
 libc_name = ctypes.util.find_library("c")
 libc = ctypes.CDLL(libc_name)
@@ -237,7 +238,9 @@ class Aligner:
         start_time = time.time()
         self.genome_sequence = genome_sequence
         self.reverse_genome = self.genome_sequence[::-1] + '$'
-        self.reverse_sa = get_suffix_array(self.reverse_genome)
+        # self.reverse_sa = get_suffix_array(self.reverse_genome)
+        with open('genome_suffix_array.json') as infile:
+            self.reverse_sa = json.load(infile)
         self.reverse_bwt = get_bwt(self.reverse_genome, self.reverse_sa)
         self.reverse_F = get_F(self.reverse_bwt)
         self.reverse_M = get_M(self.reverse_F)
@@ -253,7 +256,7 @@ class Aligner:
         self.isoform_sas = {}
         self.isoform_M = {}
         self.isoform_occ = {}
-        self.processIsoforms()
+        # self.processIsoforms()
         print('init time: ' + str(time.time() - start_time))
     
     def processIsoforms(self):
@@ -309,11 +312,9 @@ class Aligner:
 
         Time limit: 0.5 seconds per read on average on the provided data.
         """
-        start_time = time.time()
         alignment = self.alignKnown(read_sequence)
         if alignment == []:
             alignment = self.alignGenome(read_sequence)
-        print('align time for one read: ' + str(time.time() - start_time))
         return alignment
         
     def alignKnown(self, read_sequence):
@@ -328,21 +329,25 @@ class Aligner:
         # seeds and anchor seeds identified in the isoform (indexing isoform, not genome)
         # isoform_seeds = {}
         # isoform_windows = {}
+        start_time = time.time()
+        read_length = len(read_sequence)
         best_alignment = (None, None) # tuple where first value is isoform id and second value is alignment
         best_score = -math.inf
-        for isoform in self.exon_indices.keys():
+        for isoform in self.exon_indices:
             isoform_sequence = self.isoform_sequences[isoform]
             seeds, anchor_seeds = self.findSeeds(read_sequence, isoform)
             windows = self.findWindows(seeds, anchor_seeds)
             for w in windows:
-                runs = self.findRuns(w)
+                w_sorted = sorted(w, key=lambda item: item[0][0])
+                runs = self.findRuns(w_sorted)
                 for a in runs:
-                    if a[0][1][0] != 0 or a[-1][1][1] != len(read_sequence):
+                    if a[0][1][0] != 0 or a[-1][1][1] != read_length:
                         continue
                     score, alignment = self.findAlignment(read_sequence, a, isoform_sequence)
                     if score > best_score:
                         best_score = score
                         best_alignment = (isoform, alignment)
+        print('align time for known: ' + str(time.time() - start_time))
         return self.formatAlignment(best_alignment[1], best_alignment[0])
 
     def alignGenome(self, read_sequence):
@@ -355,6 +360,7 @@ class Aligner:
         anchor_seeds = []
         n = len(self.genome_sequence)
         read_length = len(read_sequence)
+        start_time = time.time()
         for match in reverse_seeds:
             genome_match, read_match = match
             g_start, g_end = genome_match
@@ -369,16 +375,24 @@ class Aligner:
                 seeds.append(seed)
                 if o_start - o_end < ANCHOR_LIMIT:
                     anchor_seeds.append(seed)
+        # print('seeds: ' + str(seeds))
+        # print('anchor seeds: ' + str(anchor_seeds))
         best_alignment = None
         best_score = -math.inf
         windows = self.findWindows(seeds, anchor_seeds)
+        # print('windows: ' + str(windows))
         for w in windows:
+            w_sorted = sorted(w, key=lambda item: item[0][0])
+            if w_sorted[0][1][0] > 0 or w_sorted[-1][1][1] < read_length:
+                continue
             runs = self.findRuns(w)
+            # print('runs: ' + str(runs))
             for a in runs:
                 score, alignment = self.findAlignment(read_sequence, a)
                 if score > best_score:
                     best_score = score
                     best_alignment = alignment
+        print('align time for genome: ' + str(time.time() - start_time))
         return self.formatAlignment(best_alignment)
 
     def findSeeds(self, read_sequence, isoform_id):
@@ -483,7 +497,6 @@ class Aligner:
             Increasing = order is preserved between read and genome. If
             there are multiple sequences that are the same length, return all of them.
         """
-        w = sorted(window, key=lambda item: item[0][0])
         store = []
         def increasingSubsequence(sorted_window, output):
             nonlocal store
