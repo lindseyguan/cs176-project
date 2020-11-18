@@ -33,13 +33,14 @@ def testBWTFunctions():
 
 def testAlignerInit():
     # Testing runtime of Aligner init
-    genome_sequence = ''
-    with open('./genome.fa') as f:
-        genome_sequence = f.readline()
-        genome_sequence = f.readline() + '$'
-    # genome_sequence = 'ACTGGTTACCCTACTGACCG'
+    # genome_sequence = ''
+    # with open('./genome.fa') as f:
+    #     genome_sequence = f.readline()
+    #     genome_sequence = f.readline() + '$'
+    genome_sequence = 'ACTGGTTACCCTACTGACCG'
     # read = 'ATTACTCTTGGGAATGAAATCCTATCTATATAAGCTGTGGTTTGAAATCC'
-    # read = 'ACTGCACCC'
+    read = 'ACTGCACCC'
+
     genes = set()
 
     gene_id = ''
@@ -52,6 +53,54 @@ def testAlignerInit():
     start = 0
     end = 0
         
+    for line in reversed(list(open("./genes_short.tab"))):
+        elements = line.split('\t')
+        if elements[0] == 'exon':
+            ex = Exon(elements[1], int(elements[2]), int(elements[3]))
+            exons.append(ex)
+        elif elements[0] == 'isoform':
+            iso = Isoform(elements[1], exons)
+            isoforms.append(iso)
+            exons = []
+        elif elements[0] == 'gene':
+            g = Gene(elements[1], isoforms)
+            genes.add(g)
+            isoforms = []
+
+    # reads = []
+    # for line in list(open("./reads.fa")):
+    #     if line[0] != '>':
+    #         reads.append(line.rstrip())
+    # test for known genes
+    aligner = Aligner(genome_sequence, genes)
+    # alignments = []
+    # hit_count = 0
+    # start_time = time.time()
+    # for r in reads:
+    #     a = aligner.align(r)
+    #     alignments.append(a)
+    #     if a:
+    #         hit_count += 1
+    # print('read count: ' + str(len(reads)))
+    # print('total time: ' + str(time.time() - start_time))
+    # print('hit rate: ' + str(hit_count/len(reads)))
+
+    aligner.align(read)
+
+    # test findSubsequence
+    # window = {((10, 11), (4, 5)), ((4, 7), (5, 8)), ((8, 9), (3, 4)), ((7, 8), (4, 5)), ((1, 2), (4, 5)), ((2, 4), (0, 2)), ((8, 9), (2, 3))}
+    # sub = aligner.findRuns(window)
+    # for seq in sub:
+    #     print(seq)
+
+def runKnownAndUnknown():
+    with open('./genome.fa') as f:
+        genome_sequence = f.readline()
+        genome_sequence = f.readline() + '$'
+
+    genes = set()
+    isoforms = []
+    exons = []
     for line in reversed(list(open("./genes.tab"))):
         elements = line.split('\t')
         if elements[0] == 'exon':
@@ -70,7 +119,7 @@ def testAlignerInit():
     for line in list(open("./reads.fa")):
         if line[0] != '>':
             reads.append(line.rstrip())
-    # test for known genes
+
     aligner = Aligner(genome_sequence, genes)
     alignments = []
     hit_count = 0
@@ -82,19 +131,108 @@ def testAlignerInit():
             hit_count += 1
     print('read count: ' + str(len(reads)))
     print('total time: ' + str(time.time() - start_time))
-    print('hit rate: ' + str(hit_count/len(reads)))
+    print('known genes hit rate: ' + str(hit_count / len(reads)))
 
-    # print(aligner.alignGenome(read))
-    # aligner.alignKnown(read)
-    # print(read)
-    # print(genome_sequence[10359306:10359306+14])
-    
-    # test findSubsequence
-    # window = {((10, 11), (4, 5)), ((4, 7), (5, 8)), ((8, 9), (3, 4)), ((7, 8), (4, 5)), ((1, 2), (4, 5)), ((2, 4), (0, 2)), ((8, 9), (2, 3))}
-    # sub = aligner.findRuns(window)
-    # for seq in sub:
-    #     print(seq)
-    
+    genes = set()
+    isoforms = []
+    exons = []
+
+    for line in reversed(list(open("./genes.tab"))):
+        elements = line.split('\t')
+        if elements[0] == 'unknown_exon':
+            ex = Exon(elements[1], int(elements[2]), int(elements[3]))
+            exons.append(ex)
+        elif elements[0] == 'unknown_isoform':
+            iso = Isoform(elements[1], exons)
+            isoforms.append(iso)
+            exons = []
+        elif elements[0] == 'unknown_gene':
+            g = Gene(elements[1], isoforms)
+            genes.add(g)
+            isoforms = []
+
+    aligner = Aligner(genome_sequence, genes)
+    alignments = []
+    hit_count = 0
+    start_time = time.time()
+    for r in reads:
+        a = aligner.align(r)
+        alignments.append(a)
+        if a:
+            hit_count += 1
+    print('read count: ' + str(len(reads)))
+    print('total time: ' + str(time.time() - start_time))
+    print('unknown genes hit rate: ' + str(hit_count / len(reads)))
+
+def runFullVersion():
+    with open('./genome.fa') as f:
+        genome_sequence = f.readline()
+        genome_sequence = f.readline() + '$'
+
+    genes = set()
+    isoforms = []
+    exons = []
+    for line in reversed(list(open("./genes.tab"))):
+        elements = line.split('\t')
+        if elements[0] == 'exon':
+            ex = Exon(elements[1], int(elements[2]), int(elements[3]))
+            exons.append(ex)
+        elif elements[0] == 'isoform':
+            iso = Isoform(elements[1], exons)
+            isoforms.append(iso)
+            exons = []
+        elif elements[0] == 'gene':
+            g = Gene(elements[1], isoforms)
+            genes.add(g)
+            isoforms = []
+
+    reads = []
+    for line in list(open("./reads.fa")):
+        if line[0] != '>':
+            reads.append(line.rstrip())
+
+    aligner = Aligner(genome_sequence, genes)
+    print('aligner initialized')
+    alignments = []
+    hit_count = 0
+    start_time = time.time()
+    for i in range(10):
+        print(reads[i])
+        a = aligner.align(reads[i])
+        alignments.append(a)
+        if a:
+            hit_count += 1
+    print('read count: ' + str(len(reads)))
+    print('total time: ' + str(time.time() - start_time))
+    print('total hit rate: ' + str(hit_count / len(reads)))
+
+def runSingleRead():
+    read = 'TCTCGGGGTGAATACCTCTTATCGCGATACCTCCGGGGACTAGTGCGCCA'
+    with open('./genome.fa') as f:
+        genome_sequence = f.readline()
+        genome_sequence = f.readline() + '$'
+
+    genes = set()
+    isoforms = []
+    exons = []
+    for line in reversed(list(open("./genes.tab"))):
+        elements = line.split('\t')
+        if elements[0] == 'exon':
+            ex = Exon(elements[1], int(elements[2]), int(elements[3]))
+            exons.append(ex)
+        elif elements[0] == 'isoform':
+            iso = Isoform(elements[1], exons)
+            isoforms.append(iso)
+            exons = []
+        elif elements[0] == 'gene':
+            g = Gene(elements[1], isoforms)
+            genes.add(g)
+            isoforms = []
+
+    start_time = time.time()
+    aligner = Aligner(genome_sequence, genes)
+    print(aligner.align(read))
+    print('total time: ' + str(time.time() - start_time))
 
 def testRadixSort():
     # s = 'ACGTAGCCG' * 2000 + '$'
@@ -108,5 +246,8 @@ def testRadixSort():
     get_suffix_array(s)
     
 # testRadixSort()
-testAlignerInit()
+# testAlignerInit()
 # testBWTFunctions()
+# runKnownAndUnknown()
+# runFullVersion()
+runSingleRead()
