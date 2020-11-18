@@ -550,6 +550,7 @@ class Aligner:
                 else:
                     # If the read intron is longer than the reference intron, this is not a valid alignment (introduces gaps)
                     return 0, set()
+        print('best alignment: ' + best_alignment)
         return total_score, best_alignment
     
     def matchScore(self, seq1, seq2):
