@@ -87,7 +87,7 @@ def naive_suffix_array(s):
     start_time = time.time()
     index_suffix_dict = {i:s[i:] for i in range(len(s))}
     a = [k for k, v in sorted(index_suffix_dict.items(), key=lambda item: item[1])]
-    print('naive: ' + str((time.time() - start_time) * 1000))
+    # print('naive: ' + str((time.time() - start_time) * 1000))
     # print(a)
     return a
 
@@ -234,6 +234,7 @@ class Aligner:
 
         """
         # BWT-related structures for the reverse genome
+        start_time = time.time()
         self.genome_sequence = genome_sequence
         self.reverse_genome = self.genome_sequence[::-1] + '$'
         self.reverse_sa = get_suffix_array(self.reverse_genome)
@@ -253,6 +254,7 @@ class Aligner:
         self.isoform_M = {}
         self.isoform_occ = {}
         self.processIsoforms()
+        print('init time: ' + str(time.time() - start_time))
     
     def processIsoforms(self):
         """
@@ -307,7 +309,12 @@ class Aligner:
 
         Time limit: 0.5 seconds per read on average on the provided data.
         """
-        pass
+        start_time = time.time()
+        alignment = self.alignKnown(read_sequence)
+        if alignment == []:
+            alignment = self.alignGenome(read_sequence)
+        print('align time for one read: ' + str(time.time() - start_time))
+        return alignment
         
     def alignKnown(self, read_sequence):
         """
@@ -330,14 +337,13 @@ class Aligner:
             for w in windows:
                 runs = self.findRuns(w)
                 for a in runs:
-                    print(str(a) + ' len: ' + str(len(a)))
                     if a[0][1][0] != 0 or a[-1][1][1] != len(read_sequence):
                         continue
                     score, alignment = self.findAlignment(read_sequence, a, isoform_sequence)
                     if score > best_score:
                         best_score = score
                         best_alignment = (isoform, alignment)
-        print(self.formatAlignment(best_alignment[1], best_alignment[0])) 
+        return self.formatAlignment(best_alignment[1], best_alignment[0])
 
     def alignGenome(self, read_sequence):
         """
@@ -373,7 +379,7 @@ class Aligner:
                 if score > best_score:
                     best_score = score
                     best_alignment = alignment
-        print(self.formatAlignment(best_alignment))
+        return self.formatAlignment(best_alignment)
 
     def findSeeds(self, read_sequence, isoform_id):
         """
