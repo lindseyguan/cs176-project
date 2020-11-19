@@ -380,17 +380,25 @@ class Aligner:
         # print('num anchor seeds: ' + str(len(anchor_seeds)))
         best_alignment = None
         best_score = -math.inf
-        windows = self.findWindows(seeds, anchor_seeds)
+
+        # print(anchor_seeds)
+        # print(len(seeds))
+        # print(len(anchor_seeds))
+        run = self.findRuns(sorted(anchor_seeds, key=lambda item: item[0][0]))
+        score, alignment = self.findAlignment(read_sequence, run)
+        best_alignment = alignment
+
+        # windows = self.findWindows(seeds, anchor_seeds)
         # print('windows: ' + str(windows))
-        for w in windows:
-            w_sorted = sorted(w, key=lambda item: item[0][0])
-            run = self.findRuns(w_sorted)
-            if run[0][1][0] != 0 or run[-1][1][1] != read_length:
-                continue
-            score, alignment = self.findAlignment(read_sequence, run)
-            if score > best_score:
-                best_score = score
-                best_alignment = alignment
+        # for w in windows:
+        #     w_sorted = sorted(w, key=lambda item: item[0][0])
+        #     run = self.findRuns(w_sorted)
+        #     if run[0][1][0] != 0 or run[-1][1][1] != read_length:
+        #         continue
+        #     score, alignment = self.findAlignment(read_sequence, run)
+        #     if score > best_score:
+        #         best_score = score
+        #         best_alignment = alignment
         # print('align time for genome: ' + str(time.time() - start_time))
         return self.formatAlignment(best_alignment)
 
@@ -536,7 +544,7 @@ class Aligner:
         # If no sequence passed in, assume alignment to genome
         if isoform_sequence is None:
             genome_start = seeds[0][0][0]
-            genome_end = seeds[-1][0][1]
+            genome_end = seeds[-1][0][1] + len(read_sequence)
             reference_sequence = self.genome_sequence[genome_start:genome_end]
         else:
             reference_sequence = isoform_sequence
@@ -586,7 +594,30 @@ class Aligner:
                     # If the read intron is longer than the reference intron, this is not a valid alignment (introduces gaps)
                     return 0, []
         best_alignment.append(seeds[-1])
+
+        if seeds[0][1][0] > 0:
+            prefix_intron = read_sequence[0:seeds[0][1][0]]
+            reference_intron = reference_sequence[seeds[0][0][0] - len(prefix_intron):seeds[0][0][0]]
+            print(prefix_intron)
+            print(reference_intron)
+            score, mismatches = self.matchScore(prefix_intron, reference_intron)
+            print(mismatches)
+            if mismatches > MAX_MISMATCHES:
+                return 0, []
+            best_alignment.append(((seeds[0][0][0] - len(prefix_intron), seeds[0][0][0]), (0, seeds[0][1][0])))
+        if seeds[-1][1][1] < len(read_sequence):
+            suffix_intron = read_sequence[seeds[-1][1][1]:]
+            reference_intron = reference_sequence[seeds[-1][0][1]:seeds[-1][0][1] + len(suffix_intron)]
+            print(suffix_intron)
+            print(reference_intron)
+            score, mismatches = self.matchScore(suffix_intron, reference_intron)
+            print(mismatches)
+            if mismatches > MAX_MISMATCHES:
+                return 0, []
+            best_alignment.append(((seeds[-1][0][1], seeds[-1][0][1] + len(suffix_intron)), (seeds[-1][1][1], len(read_sequence))))
+
         total_score += seeds[-1][1][1] - seeds[-1][1][0]
+        # print(best_alignment)
         return total_score, best_alignment
 
     def matchScore(self, seq1, seq2):

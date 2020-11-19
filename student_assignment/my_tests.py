@@ -198,6 +198,7 @@ def runFullVersion():
     hit_count = 0
     start_time = time.time()
     subset_reads = 100
+
     for i in tqdm(range(subset_reads)):
         a = aligner.align(reads[i])
         alignments.append(a)
@@ -208,7 +209,7 @@ def runFullVersion():
     print('total hit rate: ' + str(hit_count / len(alignments)))
 
 def runSingleRead():
-    read = 'TCTCGGGGTGAATACCTCTTATCGCGATACCTCCGGGGACTAGTGCGCCA'
+    read = 'ATTAGCGTGGCTCCTGTGCAAGGAAGACACACAAATTTGTGATGTGTTCC'
     with open('./genome.fa') as f:
         genome_sequence = f.readline()
         genome_sequence = f.readline() + '$'
@@ -230,13 +231,13 @@ def runSingleRead():
             genes.add(g)
             isoforms = []
 
-    start_time = time.time()
     aligner = Aligner(genome_sequence, genes)
-    alignment = aligner.align(read)
+
+    start_time = time.time()
+    alignment = aligner.alignGenome(read)
     print(alignment)
-    print('total time: ' + str(time.time() - start_time))
+    print('align time: ' + str(time.time() - start_time))
     print(read)
-    print(genome_sequence[alignment[0][1]:alignment[0][2]])
 
 def testRadixSort():
     # s = 'ACGTAGCCG' * 2000 + '$'
@@ -253,5 +254,5 @@ def testRadixSort():
 # testAlignerInit()
 # testBWTFunctions()
 # runKnownAndUnknown()
-runFullVersion()
-# runSingleRead()
+# runFullVersion()
+runSingleRead()
