@@ -16,16 +16,15 @@ import ctypes
 import ctypes.util
 import functools
 import json
-import numpy as np
 import math
 import time
 from shared import *
 
 ALPHABET = [TERMINATOR] + BASES
 MIN_INTRON_SIZE = 20
-MAX_INTRON_SIZE = 64000
+MAX_INTRON_SIZE = 10000
 MAX_MISMATCHES = 6
-ANCHOR_LIMIT = 50
+ANCHOR_LIMIT = 5
 
 libc_name = ctypes.util.find_library("c")
 libc = ctypes.CDLL(libc_name)
@@ -236,12 +235,12 @@ class Aligner:
 
         """
         # BWT-related structures for the reverse genome
-        start_time = time.time()
+        # start_time = time.time()
         self.genome_sequence = genome_sequence
         self.reverse_genome = self.genome_sequence[::-1] + '$'
-        # self.reverse_sa = get_suffix_array(self.reverse_genome)
-        with open('genome_suffix_array.json') as infile:
-            self.reverse_sa = json.load(infile)
+        self.reverse_sa = get_suffix_array(self.reverse_genome)
+        # with open('genome_suffix_array.json') as infile:
+        #     self.reverse_sa = json.load(infile)
         self.reverse_bwt = get_bwt(self.reverse_genome, self.reverse_sa)
         self.reverse_F = get_F(self.reverse_bwt)
         self.reverse_M = get_M(self.reverse_F)
@@ -258,7 +257,7 @@ class Aligner:
         self.isoform_M = {}
         self.isoform_occ = {}
         self.processIsoforms()
-        print('init time: ' + str(time.time() - start_time))
+        # print('init time: ' + str(time.time() - start_time))
 
     def processIsoforms(self):
         """
@@ -314,8 +313,8 @@ class Aligner:
         Time limit: 0.5 seconds per read on average on the provided data.
         """
         alignment = self.alignKnown(read_sequence)
-        # if not alignment:
-        #     alignment = self.alignGenome(read_sequence)
+        if not alignment:
+            alignment = self.alignGenome(read_sequence)
         return alignment
 
     def alignKnown(self, read_sequence):
@@ -352,7 +351,7 @@ class Aligner:
         anchor_seeds = []
         n = len(self.genome_sequence)
         read_length = len(read_sequence)
-        start_time = time.time()
+        # start_time = time.time()
         for match in reverse_seeds:
             genome_match, read_match = match
             g_start, g_end = genome_match

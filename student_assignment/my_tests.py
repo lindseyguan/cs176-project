@@ -194,7 +194,7 @@ def runFullVersion():
             reads.append(line.rstrip())
 
     aligner = Aligner(genome_sequence, genes)
-    print('aligner initialized')
+    # print('aligner initialized')
     alignments = []
     hit_count = 0
     start_time = time.time()
@@ -346,6 +346,6 @@ def runEval():
 # testAlignerInit()
 # testBWTFunctions()
 # runKnownAndUnknown()
-# runFullVersion()
+runFullVersion()
 # runSingleRead()
-runEval()
+# runEval()
