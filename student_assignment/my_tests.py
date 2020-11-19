@@ -12,6 +12,7 @@ import numpy as np
 import time
 from tqdm import tqdm
 from shared import *
+from evaluation import *
 from project import *
 
 def testBWTFunctions():
@@ -249,10 +250,102 @@ def testRadixSort():
         s = f.readline()
         s = f.readline() + '$'
     get_suffix_array(s)
-    
+
+def runEval():
+    known_genes = set()
+    isoforms = []
+    exons = []
+    for line in reversed(list(open("./genes.tab"))):
+        elements = line.split('\t')
+        if elements[0] == 'exon':
+            ex = Exon(elements[1], int(elements[2]), int(elements[3]))
+            exons.append(ex)
+        elif elements[0] == 'isoform':
+            iso = Isoform(elements[1], exons)
+            isoforms.append(iso)
+            exons = []
+        elif elements[0] == 'gene':
+            g = Gene(elements[1], isoforms)
+            known_genes.add(g)
+            isoforms = []
+
+    unknown_genes = set()
+    isoforms = []
+    exons = []
+    for line in reversed(list(open("./genes.tab"))):
+        elements = line.split('\t')
+        if elements[0] == 'unknown_exon':
+            ex = Exon(elements[1], int(elements[2]), int(elements[3]))
+            exons.append(ex)
+        elif elements[0] == 'unknown_isoform':
+            iso = Isoform(elements[1], exons)
+            isoforms.append(iso)
+            exons = []
+        elif elements[0] == 'unknown_gene':
+            g = Gene(elements[1], isoforms)
+            unknown_genes.add(g)
+            isoforms = []
+
+    all_known_isoforms = set()
+    for k in known_genes:
+        for i in k.isoforms:
+            all_known_isoforms.add(i)
+
+    all_unknown_isoforms = set()
+    for u in unknown_genes:
+        for i in u.isoforms:
+            all_unknown_isoforms.add(i)
+
+    with open('./genome.fa') as f:
+        genome_sequence = f.readline()
+        genome_sequence = f.readline() + '$'
+
+    reads = []
+    for line in list(open("./reads.fa")):
+        if line[0] != '>':
+            reads.append(line.rstrip())
+
+    aligner = Aligner(genome_sequence, known_genes)
+    print('aligner initialized')
+    alignments = []
+    hit_count = 0
+    start_time = time.time()
+    subset_reads = 100
+
+    known_count = 0
+    hidden_count = 0
+    unaligned_count = 0
+    index = index_isoform_locations(all_known_isoforms, all_unknown_isoforms)
+    for i in range(subset_reads):
+        read = reads[i]
+        a = aligner.align(read)
+        print(a)
+        for m in a:
+            read_seg = read[m[0]:m[0] + m[2]]
+            ref_seg = genome_sequence[m[1]:m[1] + m[2]]
+            # print(read_seg)
+            # print(ref_seg)
+        eval = evaluate_alignment(genome_sequence, reads[i], a, all_unknown_isoforms, index)
+        if eval[0] == 'gene':
+            known_count += 1
+        if eval[0] == 'unaligned':
+            unaligned_count += 1
+        if eval[0] == 'hidden':
+            hidden_count += 1
+        alignments.append(a)
+        if a:
+            hit_count += 1
+    print('known: ' + str(known_count))
+    print('hidden: ' + str(hidden_count))
+    print('unaligned: ' + str(unaligned_count))
+    print('read count: ' + str(len(alignments)))
+    print('total time: ' + str(time.time() - start_time))
+    print('total hit rate: ' + str(hit_count / len(alignments)))
+
 # testRadixSort()
 # testAlignerInit()
 # testBWTFunctions()
 # runKnownAndUnknown()
 # runFullVersion()
-runSingleRead()
+# runSingleRead()
+runEval()

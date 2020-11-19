@@ -80,7 +80,6 @@ def get_suffix_array(s):
     string_p2 = (ctypes.c_char * len(s)).from_buffer(string_bb)
     string_ptr = ctypes.cast(string_p2, ctypes.c_void_p).value
     sorted_suffixes = sort_substrings(suffixes, string_ptr)
-    # print("memcmp sort: " + str((time.time() - start_time) * 1000))
     return [s[0] for s in sorted_suffixes]
 
 
@@ -91,8 +90,6 @@ def naive_suffix_array(s):
     start_time = time.time()
     index_suffix_dict = {i: s[i:] for i in range(len(s))}
     a = [k for k, v in sorted(index_suffix_dict.items(), key=lambda item: item[1])]
-    # print('naive: ' + str((time.time() - start_time) * 1000))
-    # print(a)
     return a
 
 
@@ -225,11 +222,6 @@ def exact_suffix_matches(p, M, occ):
             break
     return ((sp, ep + 1), len(p) - i)
 
-
-MIN_INTRON_SIZE = 20
-MAX_INTRON_SIZE = 10000
-
-
 class Aligner:
     def __init__(self, genome_sequence, known_genes):
         """
@@ -322,8 +314,8 @@ class Aligner:
         Time limit: 0.5 seconds per read on average on the provided data.
         """
         alignment = self.alignKnown(read_sequence)
-        if alignment == []:
-            alignment = self.alignGenome(read_sequence)
+        # if not alignment:
+        #     alignment = self.alignGenome(read_sequence)
         return alignment
 
     def alignKnown(self, read_sequence):
@@ -384,21 +376,21 @@ class Aligner:
         # print(anchor_seeds)
         # print(len(seeds))
         # print(len(anchor_seeds))
-        run = self.findRuns(sorted(anchor_seeds, key=lambda item: item[0][0]))
-        score, alignment = self.findAlignment(read_sequence, run)
-        best_alignment = alignment
+        # run = self.findRuns(sorted(anchor_seeds, key=lambda item: item[0][0]))
+        # score, alignment = self.findAlignment(read_sequence, run)
+        # best_alignment = alignment
 
-        # windows = self.findWindows(seeds, anchor_seeds)
+        windows = self.findWindows(seeds, anchor_seeds)
         # print('windows: ' + str(windows))
-        # for w in windows:
-        #     w_sorted = sorted(w, key=lambda item: item[0][0])
-        #     run = self.findRuns(w_sorted)
-        #     if run[0][1][0] != 0 or run[-1][1][1] != read_length:
-        #         continue
-        #     score, alignment = self.findAlignment(read_sequence, run)
-        #     if score > best_score:
-        #         best_score = score
-        #         best_alignment = alignment
+        for w in windows:
+            w_sorted = sorted(w, key=lambda item: item[0][0])
+            run = self.findRuns(w_sorted)
+            if run[0][1][0] != 0 or run[-1][1][1] != read_length:
+                continue
+            score, alignment = self.findAlignment(read_sequence, run)
+            if score > best_score:
+                best_score = score
+                best_alignment = alignment
         # print('align time for genome: ' + str(time.time() - start_time))
         return self.formatAlignment(best_alignment)
 
@@ -540,85 +532,76 @@ class Aligner:
         best_alignment = []
         total_mismatches = 0
         total_score = 0
-        reference_sequence = None
         # If no sequence passed in, assume alignment to genome
         if isoform_sequence is None:
             genome_start = seeds[0][0][0]
-            genome_end = seeds[-1][0][1] + len(read_sequence)
+            genome_end = seeds[-1][0][1]
             reference_sequence = self.genome_sequence[genome_start:genome_end]
         else:
             reference_sequence = isoform_sequence
-        # for every intron in the read
+        # for every unmapped chunk in the read
         for i in range(len(seeds) - 1):
             best_alignment.append(seeds[i])  # all seeds make it to the best alignment
             total_score += seeds[i][1][1] - seeds[i][1][0]
             best_indel_index = 0
-            best_indel_score = 0
+            best_indel_score = -math.inf
             best_indel_mismatches = 0
             read_intron = read_sequence[seeds[i][1][1]:seeds[i + 1][1][0]]  # end of first seed to start of next
             read_intron_length = len(read_intron)
             reference_intron = reference_sequence[
                                seeds[i][0][1]:seeds[i + 1][0][0]]  # end of first seed to start of next
             reference_intron_length = len(reference_intron)
+            gap_penalty = (reference_intron_length - read_intron_length) * -1
             if read_intron_length == 0:  # only consider gap penalty
                 total_score += (seeds[i + 1][0][0] - seeds[i][0][1]) * -1
                 continue
             else:
-                if read_intron_length < reference_intron_length:
-                    for j in range(read_intron_length):  # for every indel location
+                if read_intron_length <= reference_intron_length:
+                    for j in range(read_intron_length + 1):  # for every indel location
                         first_read_seg = read_intron[:j]
                         last_read_seg = read_intron[j:]
                         first_iso_seg = reference_intron[:j]
-                        last_iso_seg = reference_intron[reference_intron_length - (read_intron_length - j):]
-                        gap_penalty = (reference_intron_length - read_intron_length) * -1
+                        last_iso_seg = reference_intron[reference_intron_length - len(last_read_seg):]
                         score1, mismatches1 = self.matchScore(first_read_seg, first_iso_seg)
                         score2, mismatches2 = self.matchScore(last_read_seg, last_iso_seg)
-                        score = mismatches1 + mismatches2 + gap_penalty
+                        score = score1 + score2 + gap_penalty
+                        # print("best indel score:", best_indel_score, " read intron length:", read_intron_length)
                         if score > best_indel_score:
                             best_indel_index = j
                             best_indel_score = score
                             best_indel_mismatches = mismatches1 + mismatches2
-                    read_part_1 = read_sequence[seeds[i][1][1]:seeds[i][1][1] + best_indel_index]
-                    read_part_2 = read_sequence[seeds[i][1][1] + best_indel_index:seeds[i + 1][1][0]]
-                    seed1 = ((seeds[i][0][1], seeds[i][0][1] + len(read_part_1)),
+                            # print("new best", (mismatches1, mismatches2))
+                    seed1 = ((seeds[i][0][1], seeds[i][0][1] + best_indel_index),
                              (seeds[i][1][1], seeds[i][1][1] + best_indel_index))
-                    seed2 = ((seeds[i + 1][0][0] - len(read_part_2), seeds[i + 1][0][0]),
+                    seed2 = ((seeds[i + 1][0][0] - (read_intron_length - best_indel_index), seeds[i + 1][0][0]),
                              (seeds[i][1][1] + best_indel_index, seeds[i + 1][1][0]))
                     best_alignment.append(seed1)
                     best_alignment.append(seed2)
                     total_score += best_indel_score
                     total_mismatches += best_indel_mismatches
+                    # print('increment total mismatches: ' + str(total_mismatches))
                     if total_mismatches > MAX_MISMATCHES:
                         return 0, []
                 else:
                     # If the read intron is longer than the reference intron, this is not a valid alignment (introduces gaps)
                     return 0, []
         best_alignment.append(seeds[-1])
-
-        if seeds[0][1][0] > 0:
-            prefix_intron = read_sequence[0:seeds[0][1][0]]
-            reference_intron = reference_sequence[seeds[0][0][0] - len(prefix_intron):seeds[0][0][0]]
-            print(prefix_intron)
-            print(reference_intron)
-            score, mismatches = self.matchScore(prefix_intron, reference_intron)
-            print(mismatches)
-            if mismatches > MAX_MISMATCHES:
-                return 0, []
-            best_alignment.append(((seeds[0][0][0] - len(prefix_intron), seeds[0][0][0]), (0, seeds[0][1][0])))
-        if seeds[-1][1][1] < len(read_sequence):
-            suffix_intron = read_sequence[seeds[-1][1][1]:]
-            reference_intron = reference_sequence[seeds[-1][0][1]:seeds[-1][0][1] + len(suffix_intron)]
-            print(suffix_intron)
-            print(reference_intron)
-            score, mismatches = self.matchScore(suffix_intron, reference_intron)
-            print(mismatches)
-            if mismatches > MAX_MISMATCHES:
-                return 0, []
-            best_alignment.append(((seeds[-1][0][1], seeds[-1][0][1] + len(suffix_intron)), (seeds[-1][1][1], len(read_sequence))))
-
         total_score += seeds[-1][1][1] - seeds[-1][1][0]
-        # print(best_alignment)
+        # print('count mismatch: ' + str(self.countMismatch(best_alignment, read_sequence, isoform_sequence)))
+        # print('what i call total mismatch: ' + str(total_mismatches))
         return total_score, best_alignment
+
+    def countMismatch(self, alignment, read, sequence=None):
+        mismatches = 0
+        if sequence:
+            reference = sequence
+        else:
+            reference = self.genome_sequence
+        for m in alignment:
+            read_seg = read[m[1][0]:m[1][1]]
+            ref_seg = reference[m[0][0]:m[0][1]]
+            mismatches += self.matchScore(read_seg, ref_seg)[1]
+        return mismatches
 
     def matchScore(self, seq1, seq2):
         """

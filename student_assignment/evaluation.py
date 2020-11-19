@@ -37,13 +37,17 @@ def evaluate_alignment(genome_sequence, read_sequence, alignment, unknown_isofor
             read_index += 1
         r_end_prev = r_start + length
     if len(isoform_offset_to_count) == 0:
+        print('unalign')
         return CASE_UNALIGNED, 0
     num_matches, isoform = max([(count, isoform) for (isoform, _), count in isoform_offset_to_count.items()])
     
     num_mismatches = len(read_sequence) - num_matches
     if num_mismatches <= MAX_NUM_MISMATCHES:
         if isoform in unknown_isoforms:
+            print('hidden')
             return CASE_HIDDEN_GENE, num_mismatches
         else:
+            print('gene')
             return CASE_GENE, num_mismatches
+    print('unalign 2: ' + str(num_mismatches))
     return CASE_UNALIGNED, 0
